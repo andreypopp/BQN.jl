@@ -1,0 +1,4 @@
+name = "BQN"
+uuid = "5a3513b3-c1e8-44a7-9045-f18e488440b6"
+authors = ["Andrey Popp <8mayday@gmail.com>"]
+version = "0.1.0"
