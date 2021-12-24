@@ -91,26 +91,26 @@ call(𝕤::String, 𝕨, 𝕩) = 𝕤
 call(𝕤, 𝕨, 𝕩) = 𝕤(𝕨, 𝕩)
 
 module Runtime
-  import ..List
-  function add(a::Int64, b::List)
-    res = List(length(b.vec))
-    for bb in b.vec; push!(res.vec, add(a, bb)) end
-    res
-  end
-  function add(a::List, b::Int64)
-    res = List(length(a.vec))
-    for aa in a.vec; push!(res.vec, add(aa, b)) end
-    res
-  end
-  function add(a, b) a + b end
-  function sub(a, b) a - b end
+  import ..List, ..None
 
-  function prim¨(f::Any)
-    return function(w, x)
-      @assert w == nothing
-      map(f, x)
-    end
-  end
+  bqnadd(𝕨, 𝕩) = 𝕨 + 𝕩
+  bqnsub(𝕨::None, 𝕩::Number) = -𝕩
+  bqnsub(𝕨, 𝕩) = 𝕨 - 𝕩
+  bqnmul(𝕨, 𝕩) = 𝕨 * 𝕩
+  bqndiv(𝕨::None, 𝕩::Number) = 1/𝕩
+  bqndiv(𝕨::Number, 𝕩::Number) = 𝕨/𝕩
+  bqnroot(root::None, v) = sqrt(v)
+  bqnroot(root, v) = v^(1/root)
+  bqnabs(𝕨::None, v) = abs(v)
+  bqnmin(𝕨::Int64, 𝕩::Number) = min(𝕨, 𝕩)
+  bqnmin(𝕨::None, 𝕩::Number) = floor(𝕩)
+  bqnnot(𝕨::None, 𝕩::Number) = +(1 - 𝕩)
+  bqnnot(𝕨::Number, 𝕩::Number) = 1 + (𝕨 - 𝕩)
+  bqnand(𝕨::Number, 𝕩::Number) = 𝕨*𝕩
+  bqnor(𝕨::Number, 𝕩::Number) = (𝕨+𝕩)-(𝕨*𝕩)
+
+  bqnidleft(𝕨, 𝕩) = 𝕨
+  bqnidright(𝕨, 𝕩) = 𝕩
 
   function not_implemented(idx)
     return function(w, x)
@@ -120,19 +120,19 @@ module Runtime
   end
 end
 
-runtime = [
-  Runtime.add,
-  Runtime.sub,
-  Runtime.not_implemented(3),
-  Runtime.not_implemented(4),
+_runtime = [
+  Runtime.bqnadd,
+  Runtime.bqnsub,
+  Runtime.bqnmul,
+  Runtime.bqndiv,
   Runtime.not_implemented(5),
-  Runtime.not_implemented(6),
-  Runtime.not_implemented(7),
+  Runtime.bqnroot,
+  Runtime.bqnmin,
   Runtime.not_implemented(8),
-  Runtime.not_implemented(9),
-  Runtime.not_implemented(10),
-  Runtime.not_implemented(11),
-  Runtime.not_implemented(12),
+  Runtime.bqnabs,
+  Runtime.bqnnot,
+  Runtime.bqnand,
+  Runtime.bqnor,
   Runtime.not_implemented(13),
   Runtime.not_implemented(14),
   Runtime.not_implemented(15),
@@ -141,8 +141,8 @@ runtime = [
   Runtime.not_implemented(18),
   Runtime.not_implemented(19),
   Runtime.not_implemented(20),
-  Runtime.not_implemented(21),
-  Runtime.not_implemented(22),
+  Runtime.bqnidleft,
+  Runtime.bqnidright,
   Runtime.not_implemented(23),
   Runtime.not_implemented(24),
   Runtime.not_implemented(25),
@@ -178,8 +178,10 @@ runtime = [
   Runtime.not_implemented(55),
   Runtime.not_implemented(56),
   Runtime.not_implemented(57),
-  Runtime.prim¨
+  Runtime.not_implemented(58),
 ]
+
+runtime(n::Int64) = _runtime[n + 1]
 
 module Bytecode
   names = Dict(
@@ -276,9 +278,10 @@ function vm(src, code, consts, blocks, bodies, toks)
     while true
       instr = code[code_idx + 1]
       if instr == 0x00 # PUSH
-        @debug "BYTECODE 00 PUSH"
         code_idx += 1
-        push!(stack, consts[code[code_idx + 1] + 1])
+        v = consts[code[code_idx + 1] + 1]
+        @debug "BYTECODE 00 PUSH $(v)"
+        push!(stack, v)
       elseif instr == 0x01 # DFND
         @debug "BYTECODE 01 DFND"
         code_idx += 1
@@ -428,6 +431,18 @@ function vm(src, code, consts, blocks, bodies, toks)
   run_block(blocks[1], Env(nothing, []))
 end
 
+function bqncompile(code)
+    jlsrc = read(`./BQN/src/cjs.bqn -i $(code)`, String)
+    jlcode = eval(Meta.parse(jlsrc))
+    return jlcode
+end
+
+function bqneval(code)
+    jlcode = bqncompile(code)
+    boot = eval(jlcode)
+    vm(code, boot...)
+end
+
 using Test
 
 function test_bytecode(only=nothing)
@@ -474,24 +489,42 @@ function test_bytecode(only=nothing)
     (2, "0‿(0‿{𝕩}){{a‿b←𝕩⋄t←𝕤⋄{𝕤⋄T↩{𝕤⋄{a‿b←𝕩⋄a}}}{B𝕗}0⋄(T b){a‿b←𝕩⋄𝔽b}}𝕗} 0‿(1‿(2‿(3‿(4‿{𝕩}))))"),
   ]
   for (idx, (expected, code)) in enumerate(cases)
-    if only !== nothing && !(idx in only)
-      continue
-    end
+    if only !== nothing && !(idx in only); continue end
     println("=== TEST@$(idx) $(code)")
-    jlsrc = read(`./BQN/src/cjs.bqn -i $(code)`, String)
-    @debug jlsrc
-    jlcode = eval(Meta.parse(jlsrc))
-    got = vm(code, eval(jlcode)...)
+    got = bqneval(code)
     Test.@test expected == got
   end
 end
 
-function bqneval(code)
-    jlsrc = read(`./BQN/src/cjs.bqn -i $(code)`, String)
-    jlcode = eval(Meta.parse(jlsrc))
-    println(jlcode)
-    boot = eval(jlcode)
-    vm(code, boot...)
+function test_simple(only=nothing)
+  cases = [
+          (2    , "1+1"),
+          (-2   , "1⌊-2"),
+          (-1   , "-2⌊1"),
+          (1    , "(÷2)+(÷3)+(÷6)"),
+          (4    , "⊢4⊣5"),
+          (0    , "sq←√5,⌊9×|5-sq×sq"),
+          (-0.5 , "((-3)+√(3×3)-4×2×1)÷2×2"),
+          (-0.5 , "a←2,b←3,c←1⋄((-b)+√(b×b)-4×a×c)÷2×a"),
+          (-0.5 , "b←1+a←1+c←1⋄((-b)+√(b×b)-4×a×c)÷2×a"),
+          (-0.5 , "b←3⋄⊢d←(b×b)-4×2×1⋄((-b)+√d)÷2×2"),
+          (6    , "a←3,b←4,c←5⋄⊣s←(÷2)×a+b+c⋄√s×(s-a)×(s-b)×(s-c)"),
+          (3.1415, "t←2×5⋄3+(1+(4+(1+5÷t)÷t)÷t)÷t"),
+          (3.1415, "3+(1+(4+(1+5÷10)÷10)÷10)÷10"),
+          (3    , "√25-16"),
+          (0.25 , "¬15÷20"),
+          (0    , "(3∧4)-¬(¬3)∨(¬4)"),
+          (1    , "p←¬q←÷4⋄(q∧q)+(p∨p)"),
+          (109  , "105¬-3"),
+          (-0.5 , "{{-3}+√{3×3}-4×2×1}÷2×2"),
+          (1    , "{a←1⋄{a←2}⋄a}"),
+    ]
+  for (idx, (expected, code)) in enumerate(cases)
+    if only !== nothing && !(idx in only); continue end
+    println("=== TEST@$(idx) $(code)")
+    got = bqneval(code)
+    Test.@test expected == got
+  end
 end
 
 end
