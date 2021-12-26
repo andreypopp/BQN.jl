@@ -38,24 +38,29 @@ end
 struct Arr
   storage::Array{Any}
   function Arr(n::Int64)
-    v = new(Vector{Any}())
-    sizehint!(v.storage, n)
-    v
+    𝕩 = new(Vector{Any}())
+    sizehint!(𝕩.storage, n)
+    𝕩
   end
   function Arr(storage::Any)
     new(storage)
   end
 end
 
-function Base.show(io::IO, x::Arr)
-  show(io, x.storage)
+function Base.display(𝕩::Arr)
+  size = Base.size(𝕩)
+  if size == ()
+    display(𝕩.storage)
+  else
+    display(permutedims(𝕩.storage, length(size):-1:1))
+  end
 end
 
-Base.size(xs::Arr) = size(xs.storage)
-Base.iterate(xs::Arr) = iterate(xs.storage)
-Base.iterate(xs::Arr, n::Int64) = iterate(xs.storage, n)
-Base.getindex(xs::Arr, idx::Int64) = getindex(xs.storage, idx)
-Base.length(coll::Arr) = length(coll.storage)
+Base.size(𝕩::Arr) = size(𝕩.storage)
+Base.iterate(𝕩::Arr) = iterate(𝕩.storage)
+Base.iterate(𝕩::Arr, n::Int64) = iterate(𝕩.storage, n)
+Base.getindex(𝕩::Arr, idx::Int64) = getindex(𝕩.storage, idx)
+Base.length(𝕩::Arr) = length(𝕩.storage)
 
 function Base.map(f, coll::Arr)
   res = Arr(length(coll))
@@ -196,6 +201,7 @@ module Runtime
 
   function bqnvalences(𝕘, 𝕗)
     function (𝕨, 𝕩)
+      @debug "PRIMITIVE bqnvalences"
       if 𝕨 === none
         call(𝕗, 𝕨, 𝕩)
       else
@@ -206,6 +212,7 @@ module Runtime
 
   function bqncatch(𝕘, 𝕗)
     function (𝕨, 𝕩)
+      @debug "PRIMITIVE bqncatch"
       try
         call(𝕗, 𝕨, 𝕩)
       catch e
@@ -241,16 +248,16 @@ module Runtime
   end
 
   function bqndeshape(𝕨::Arr, 𝕩::Arr)
-    size = Tuple(𝕨)
+    size = Tuple(Int(x) for x in 𝕨)
     if size == Base.size(𝕩.storage); return 𝕩 end
-    Arr(row_major_reshape(𝕩.storage, size...))
+    Arr(reshape(𝕩.storage, size))
   end
 
   function bqndeshape(𝕨::Arr, 𝕩::String)
-    𝕩 = collect(𝕩)
-    size = Tuple(𝕨)
-    Arr(row_major_reshape(𝕩, size...))
+    𝕩 = Arr(collect(𝕩))
+    bqndeshape(𝕨, 𝕩)
   end
+        
   function bqndeshape(𝕨::Arr, 𝕩::Any)
     @assert length(𝕨) == 0
     Arr(collect(𝕩))
@@ -258,7 +265,7 @@ module Runtime
 
   bqnpick(𝕨::Number, 𝕩::Number) = 𝕩
   function bqnpick(𝕨::Number, 𝕩::Arr)
-    # println("bqnpick ", 𝕨, ' ', 𝕩.storage[Int(𝕨) + 1])
+    println("bqnpick ", 𝕨, ' ', 𝕩)
     𝕩.storage[Int(𝕨) + 1]
   end
   bqnpick(𝕨::None, 𝕩::Arr) = bqnpick(0, 𝕩)
@@ -273,6 +280,7 @@ module Runtime
     # TODO: need to get rid of calls to collect() here, instead need to iterate
     # over graphemes for Strings
     function(𝕨, 𝕩)
+      @debug "PRIMITIVE bqntable"
       if 𝕨 === none
         if !isa(𝕩, Arr); 𝕩 = collect(𝕩) end
         len𝕩, size𝕩 = length(𝕩), size(𝕩)
@@ -285,19 +293,16 @@ module Runtime
       else
         if !isa(𝕨, Arr); 𝕨 = collect(𝕨) end
         if !isa(𝕩, Arr); 𝕩 = collect(𝕩) end
-        # println("SS ", 𝕨, " ", 𝕩)
         sizeres = (size(𝕨)..., size(𝕩)...)
         storage = []
-        sizehint!(storage, *(sizeres...))
-        for j in 1:length(𝕩)
-          for i in 1:length(𝕨)
+        sizehint!(storage, sizeres != () ? *(sizeres...) : 1)
+        for i in 1:length(𝕨)
+          for j in 1:length(𝕩)
             v = call(𝕗, 𝕨[i], 𝕩[j])
-            # println(𝕨[i], ' ', 𝕩[j], ' ', v)
             push!(storage, v)
           end
         end
         storage = reshape(storage, sizeres)
-        # println(storage)
         Arr(storage)
       end
     end
@@ -305,27 +310,33 @@ module Runtime
 
   function bqnscan(𝕘, 𝕗)
     function(𝕨, 𝕩)
+      @debug "PRIMITIVE bqnscan"
       curr = 𝕨
       result = Arr(length(𝕩))
       for x in 𝕩.storage
-        curr = 𝕗(curr, x)
-        push!(result.storage, curr)
+        if curr == none
+          curr = x
+          push!(result.storage, x)
+        else
+          curr = call(𝕗, curr, x)
+          push!(result.storage, curr)
+        end
       end
       result
     end
   end
 
-  bqntype(𝕨::None, 𝕩::Arr) = 0
-  bqntype(𝕨::None, 𝕩::String) = 0
-  bqntype(𝕨::None, 𝕩::Number) = 1
-  bqntype(𝕨::None, 𝕩::Char) = 2
-  bqntype(𝕨::None, 𝕩::Function) = 3
-  bqntype(𝕨::None, 𝕩::TR2D) = 3
-  bqntype(𝕨::None, 𝕩::TR3D) = 3
-  bqntype(𝕨::None, 𝕩::TR3O) = 3
-  bqntype(𝕨::None, 𝕩::F) = 3
-  bqntype(𝕨::None, 𝕩::M1) = 4
-  bqntype(𝕨::None, 𝕩::M2) = 5
+  bqntype(𝕨::None, 𝕩::Arr) = (println(𝕩);0)
+  bqntype(𝕨::None, 𝕩::String) = (println(𝕩);0)
+  bqntype(𝕨::None, 𝕩::Number) = (println(𝕩);1)
+  bqntype(𝕨::None, 𝕩::Char) = (println(𝕩);2)
+  bqntype(𝕨::None, 𝕩::Function) = (println(𝕩);3)
+  bqntype(𝕨::None, 𝕩::TR2D) = (println(𝕩);3)
+  bqntype(𝕨::None, 𝕩::TR3D) = (println(𝕩);3)
+  bqntype(𝕨::None, 𝕩::TR3O) = (println(𝕩);3)
+  bqntype(𝕨::None, 𝕩::F) = (println(𝕩);3)
+  bqntype(𝕨::None, 𝕩::M1) = (println(𝕩);4)
+  bqntype(𝕨::None, 𝕩::M2) = (println(𝕩);5)
 
   bqnfill(𝕨::None, 𝕩::String) = ' '
   bqnfill(𝕨::None, 𝕩::Arr) = 0
@@ -356,6 +367,7 @@ module Runtime
 
   function bqnfillby(𝕘, 𝕗)
     function(𝕨, 𝕩)
+      @debug "PRIMITIVE bqnfillby"
       call(𝕗, 𝕨, 𝕩)
     end
   end
@@ -913,6 +925,143 @@ function test_prim_2(only=nothing)
            (1, """ 0‿1≡+‿-=⊑⟨-⟩ """),
           ]
   run_testsuite(cases, only=only, title="Prim, Layer 2")
+end
+
+function test_prim_3(only=nothing)
+  cases = [
+           (1, """ 2≡⊑2 """),
+           (1, """ 2≡⊑⟨2⟩ """),
+           (1, """ "ab"≡⊑⟨"ab"⟩ """),
+           (1, """ 0≡⊑↕20 """),
+           (1, """ 4≡⊑3‿2‿1⥊4⥊⊸∾5⥊0 """),
+           (1, """ 'c'≡2⊑"abcd" """),
+           (1, """ 'c'≡¯2⊑"abcd" """),
+           (1, """ 7≡7⊑↕10 """),
+           (1, """ 7≡⟨7⟩⊑↕10 """),
+           (1, """ 0≡¯10⊑↕10 """),
+           (BQNError, """ 10⊑↕10 """),
+           (BQNError, """ ¯11⊑↕10 """),
+           (BQNError, """ 0.5⊑↕10 """),
+           (BQNError, """ 'x'⊑↕10 """),
+           (BQNError, """ ⟨⟩⊑↕10 """),
+           (1, """ 21≡2‿¯3⊑(10×↕3)+⌜↕4 """),
+           (BQNError, """ 2⊑3+⌜○↕4 """),
+           (1, """ 21‿12‿03≡⟨2‿¯3,1‿2,0‿¯1⟩⊑(10×↕3)+⌜↕4 """),
+           (BQNError, """ 21‿12‿03≡⟨2‿¯3‿0,1‿2,0‿¯1⟩⊑(10×↕3)+⌜↕4 """),
+           (BQNError, """ ⟨2,⟨3⟩⟩⊑↕4 """),
+           (BQNError, """ (<2)⊑↕4 """),
+           (BQNError, """ (≍≍2)⊑↕4 """),
+           (BQNError, """ ⟨≍1‿2⟩⊑↕5‿5 """),
+           (1, """ "dfeb"≡(⥊¨-⟨3,1,2,5⟩)⊑"abcdef" """),
+           (1, """ "abc"≡⟨⟩⊑<"abc" """),
+           (1, """ 'a'≡⟨⟩⊑'a' """),
+           (1, """ ⟨7,7‿7,7⟩≡⟨⟨⟩,⟨⟨⟩,⟨⟩⟩,⟨⟩⟩⊑<7 """),
+           (1, """ ⟨7,⟨7,<7⟩⟩≡⟨⟨⟩,⟨⟨⟩,<⟨⟩⟩⟩⊑7 """),
+           (1, """ "abcfab"≡⥊(↕2‿3)⊑5‿5⥊"abcdef" """),
+           (1, """ "aedcaf"≡⥊(-↕2‿3)⊑5‿5⥊"abcdef" """),
+           (BQNError, """ ↕@ """),
+           (BQNError, """ ↕2.4 """),
+           (BQNError, """ ↕<6 """),
+           (BQNError, """ ↕≍2‿3 """),
+           (BQNError, """ ↕¯1‿2 """),
+           (1, """ (<6⥊0)(⊑≡<∘⊑∘⊢)(6⥊1)⥊5 """),
+           (1, """ ¯6≡1‿0◶(2‿2⥊0‿0‿-‿0)6 """),
+           (BQNError, """ -˙◶÷‿× 4 """),
+           (1, """ ⟨3⟩≡⥊3 """),
+           (1, """ (⟨⟩⊸⥊≡<)3 """),
+           (1, """ ⟨3,3,3⟩≡3⥊3 """),
+           (1, """ ⟨3,3,3⟩≡3<⊸⥊3 """),
+           (BQNError, """ ¯3⥊3 """),
+           (BQNError, """ 1.6‿2.5⥊↕4 """),
+           (BQNError, """ (≍2‿3)⥊↕3 """),
+           (BQNError, """ "     "≡5⥊"" """),
+           (1, """ 6(⊢⌜≡∾○≢⥊⊢)○↕3 """),
+           (1, """ (<≡↕)⟨⟩ """),
+           (1, """ (↕∘⥊≡⥊¨∘↕)9 """),
+           (1, """ ∧´(⟨∘⟩⊸⥊≡⥊)¨ ⟨4,↕4,↕2‿4⟩ """),
+           (BQNError, """ 4‿∘⥊↕15 """),
+           (1, """ 1‿2‿3‿0‿1≡⥊5‿⌽⥊↑‿4⥊3‿⌊⥊1+↕4 """),
+           (1, """ ≡´⟨2‿⌽‿4,2‿3‿4⟩⥊¨<↕19 """),
+           (1, """ ¬'a'≡<'a' """),
+           (1, """ ¬"a"≡≍"a" """),
+           (1, """ ¬⟨1,2,⟨4,4⟩,5⟩≡○(2‿2⊸⥊)⟨1,2,⟨3,4⟩,5⟩ """),
+           (1, """ ¬2‿3‿4≡2‿3 """),
+           (1, """ ¬1.001≡1.002 """),
+           (1, """ 'a'≢2 """),
+           (1, """ 2≢<2 """),
+           (1, """ 2‿3≢2‿4 """),
+           (1, """ 2‿3≢≍2‿3 """),
+           (1, """ 0≡≡'a' """),
+           (1, """ 1≡≡↕6 """),
+           (1, """ 2≡≡↕2‿4 """),
+           (1, """ 3≡≡<<<4 """),
+           (1, """ (1¨≡-○≡˜⟜↕¨)⟨0,⟨⟩,⟨1⟩,2,⟨3,4⟩⟩ """),
+           (1, """ 2≡≡⟨5,⟨'c',+,2⟩⟩ """),
+           (1, """ 0≡≡⊑⟨-⟩ """),
+  ]
+  run_testsuite(cases, only=only, title="Prim, Layer 3")
+end
+
+function test_prim_4(only=nothing)
+  cases = [
+           (1, """ "a"≡⋈'a' """),
+           (1, """ ({⟨𝕩⟩}≡⋈)'a'‿2 """),
+           (1, """ "abc"‿1≡"abc"⋈1 """),
+           (1, """ ⋈´⊸≡"ab" """),
+           (1, """ ∧´≡⟜>¨⟨1,<'a',<∞,↕5,5‿3⥊2⟩ """),
+           (1, """ 2‿3‿2≡≢>↕2‿3 """),
+           (1, """ 2‿3≡>⟨<2,3⟩ """),
+           (BQNError, """ >↕¨2‿3 """),
+           (BQNError, """ >⟨⥊2,3⟩ """),
+           (BQNError, """ >(≍⋈⊢)↕4 """),
+           (1, """ ((4⥊2)⊸⥊≡(>2‿2⥊·<2‿2⥊⊢))"abcd" """),
+           (1, """ (⊢≡>∘<)5‿3⥊↕15 """),
+           (1, """ (⊢≡(><¨))5‿3⥊↕15 """),
+           (1, """ (⥊≡≍)'a' """),
+           (1, """ (⥊≡≍)<'a' """),
+           (1, """ (1‿2⊸⥊≡≍)"ab" """),
+           (1, """ 1‿2≡1≍2 """),
+           (1, """ 2‿1(≍≡2‿2⥊∾)4‿3 """),
+           (1, """ (≍⟜<≡≍˜)'a' """),
+           (BQNError, """ 1‿0≍1‿2‿3 """),
+           (BQNError, """ ≍⟜≍↕3 """),
+           (BQNError, """ ⌽⎉1.1 ↕4 """),
+           (BQNError, """ ⌽⎉'x' ↕4 """),
+           (BQNError, """ ⌽⎉(<<0) ↕4 """),
+           (BQNError, """ ⌽⎉≍ ↕4 """),
+           (1, """ (≍˘˜⥊˘1‿5‿9)≡⌽⎉2⊸+⥊⟜(↕×´)3‿2‿1 """),
+           (1, """ (<0)≡≡˘0 """),
+           (1, """ (<1)≡≡˘<0 """),
+           (1, """ (2⥊<<"ab") ≡ ⋈˜˘<"ab" """),
+           (1, """ (3⥊0) ≡ {-}=˘↕3 """),
+           (1, """ (↕4)(×⌜≡×⎉0‿2)↕5 """),
+           (1, """ (↕4)(⋆˜⌜˜≡⋆⎉∞‿¯4)↕5 """),
+           (1, """ (⟨2⟩⊸∾⍟(2‿2⥊0‿1‿1‿1)2‿3)≡≢¨≍⎉(⌊○=)⌜˜⟨↕3,2‿3⥊↕6⟩ """),
+           (1, """ (2=⌜○↕3)≡(2‿4⥊"abc")≡⎉1(2‿3‿4⥊"abc") """),
+           (1, """ ⟨0,0⟩≡(2‿4⥊"abc")≡⎉¯1(2‿3‿4⥊"abc") """),
+           (BQNError, """ ⌽⚇2‿2.5 ↕3 """),
+           (1, """ (-≡-⚇¯1)5 """),
+           (1, """ ⟨5,⟨15,1⟩⟩≡+´⚇1⟨⟨3,2⟩,⟨⟨4,5,6⟩,⟨1⟩⟩⟩ """),
+           (1, """ 5‿6‿15≡∾´+´⚇1⟨⟨0,1⟩,⟨⟨⟩⟩⟩⥊⊸∾⚇¯2‿1⟨⟨2,3⟩,⟨4,5,6⟩⟩ """),
+           (1, """ (5⥊1)≡(↕5)=○=⚇0{≍} """),
+           (BQNError, """ 2+⍟1‿'c'4 """),
+           (BQNError, """ ⋆⍟1.5 2 """),
+           (1, """ 4≡2+⍟¯1 6 """),
+           # (1, """ (2×↕7)≡2+⍟(¯3+↕7)6 """),
+           (1, """ (3⌊↕5)≡{i←0⋄r←{i+↩1⋄1+𝕩}⍟(↕4)𝕩⋄r∾i}0 """),
+           (1, """ (+⌜˜≡·>1+⍟⊢⊢)↕5 """),
+           (1, """ 0‿1‿3‿6‿10≡+`↕5 """),
+           (1, """ (-0‿1‿3‿6‿10)≡-`↕5 """),
+           # (1, """ ((0∾¨↕3)≍3⥊0)≡≡`↕2‿3 """),
+           (1, """ ⟨⟩≡×`⟨⟩ """),
+           # (1, """ ≡⟜(!∘0`)3‿0‿2⥊"" """),
+           # (BQNError, """ +`4 """),
+           # (BQNError, """ +`<'c' """),
+           (1, """ 2‿3‿5‿8‿12≡2+`↕5 """),
+           # (1, """ 3‿4+`4+⌜○↕3 """),
+           # (1, """ (2⋆1‿2‿6×⌜0‿2)≡3‿4⋆`3+⌜○↕2 """),
+  ]
+  run_testsuite(cases, only=only, title="Prim, Layer 4")
 end
 
 function provide_decompose(𝕨, 𝕩)
