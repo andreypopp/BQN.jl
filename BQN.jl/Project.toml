@@ -2,3 +2,8 @@ name = "BQN"
 uuid = "5a3513b3-c1e8-44a7-9045-f18e488440b6"
 authors = ["Andrey Popp <8mayday@gmail.com>"]
 version = "0.1.0"
+
+[deps]
+Debugger = "31a5f54b-26ea-5ae9-a837-f05ce5417438"
+Logging = "56ddb016-857b-54e1-b83d-db4d58db5568"
+Test = "8dfed614-e22c-5e08-85e1-65c5234f0b40"

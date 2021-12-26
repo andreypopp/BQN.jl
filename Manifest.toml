@@ -10,6 +10,7 @@ uuid = "0dad84c5-d112-42e6-8d28-ef12dabb789f"
 uuid = "56f22d72-fd6d-98f1-02f0-08ddc0907c33"
 
 [[deps.BQN]]
+deps = ["Debugger", "Logging", "Test"]
 path = "BQN.jl"
 uuid = "5a3513b3-c1e8-44a7-9045-f18e488440b6"
 version = "0.1.0"

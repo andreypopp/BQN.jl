@@ -144,6 +144,7 @@ call(𝕤::Arr, 𝕨, 𝕩) = 𝕤
 call(𝕤::Float64, 𝕨, 𝕩) = 𝕤
 call(𝕤::Int, 𝕨, 𝕩) = 𝕤
 call(𝕤::Char, 𝕨, 𝕩) = 𝕤
+call(𝕤::Bool, 𝕨, 𝕩) = 𝕤
 call(𝕤::String, 𝕨, 𝕩) = 𝕤
 call(𝕤::F, 𝕨, 𝕩) = call(𝕤.𝕗, 𝕨, 𝕩)
 call(𝕤::TR2D, 𝕨, 𝕩) = call(𝕤.h, none, call(𝕤.𝕘, 𝕨, 𝕩))
@@ -160,9 +161,9 @@ end
 call(𝕤::M1, 𝕨, 𝕩) = 𝕤.run(𝕤, 𝕨, 𝕩, nothing, 𝕤.𝕗)
 call(𝕤::M2, 𝕨, 𝕩) = 𝕤.run(𝕤, 𝕨, 𝕩, 𝕤.𝕘, 𝕤.𝕗)
 function call(𝕤, 𝕨, 𝕩)
-  @debug "PRIMITIVE $(𝕤) 𝕨=$(𝕨) 𝕩=$(𝕩)"
+  @debug "PRIMITIVE $(𝕤)"
   res = 𝕤(𝕨, 𝕩)
-  @debug "PRIMITIVE $(𝕤) res=$(res)"
+  @debug "PRIMITIVE $(𝕤)"
   res
 end
 
@@ -226,13 +227,30 @@ module Runtime
   bqnshape(𝕨, 𝕩::String) = Arr([length(𝕩)])
   bqnshape(𝕨, 𝕩) = Arr([])
 
-  bqndeshape(𝕨::None, 𝕩::Arr) = Arr(vec(𝕩.storage))
+  function bqndeshape(𝕨::None, 𝕩::Arr)
+    # if length(𝕩) < 30
+    #   println("bqndeshape ", 𝕩.storage, " ", vec(𝕩.storage))
+    # end
+    Arr(vec(𝕩.storage))
+  end
   bqndeshape(𝕨::None, 𝕩::String) = 𝕩
   bqndeshape(𝕨::None, 𝕩) = Arr([𝕩])
 
+  function row_major_reshape(𝕩::AbstractArray, size...)
+    𝕩 = reshape(𝕩, reverse([size...])...)
+    if size != ()
+      size_perm = length(size):-1:1
+      𝕩 = permutedims(𝕩, size_perm)
+    end
+    𝕩
+  end
+
   function bqndeshape(𝕨::Arr, 𝕩::Arr)
-    dims = Tuple(𝕨)
-    Arr(reshape(𝕩.storage, dims))
+    # if length(𝕩) < 30
+    #   println("bqndeshape2 ", 𝕨, " ", 𝕩.storage, " ", vec(𝕩.storage))
+    # end
+    size = Tuple(𝕨)
+    Arr(row_major_reshape(𝕩.storage, size...))
   end
 
   function bqndeshape(𝕨::Arr, 𝕩::String)
@@ -242,11 +260,13 @@ module Runtime
   end
   function bqndeshape(𝕨::Arr, 𝕩::Any)
     @assert length(𝕨) == 0
-    Arr(reshape([𝕩], ()))
+    Arr(collect(𝕩))
   end
 
   bqnpick(𝕨::Number, 𝕩::Number) = 𝕩
-  bqnpick(𝕨::Number, 𝕩::Arr) = 𝕩.storage[Int(𝕨) + 1]
+  function bqnpick(𝕨::Number, 𝕩::Arr)
+    𝕩.storage[Int(𝕨) + 1]
+  end
   bqnpick(𝕨::None, 𝕩::Arr) = bqnpick(0, 𝕩)
   # TODO: get rid of collect, this is slow!
   bqnpick(𝕨::Number, 𝕩::String) = collect(𝕩)[Int(𝕨) + 1]
@@ -261,12 +281,13 @@ module Runtime
     function(𝕨, 𝕩)
       if 𝕨 === none
         if !isa(𝕩, Arr); 𝕩 = collect(𝕩) end
-        len𝕩 = length(𝕩)
-        result = Arr(len𝕩)
+        len𝕩, size𝕩 = length(𝕩), size(𝕩)
+        storage = []
+        sizehint!(storage, len𝕩)
         for i in 1:len𝕩
-          push!(result.storage, call(𝕗, none, 𝕩[i]))
+          push!(storage, call(𝕗, none, 𝕩[i]))
         end
-        result
+        Arr(reshape(storage, size𝕩))
       else
         if !isa(𝕨, Arr); 𝕨 = collect(𝕨) end
         if !isa(𝕩, Arr); 𝕩 = collect(𝕩) end
@@ -619,6 +640,19 @@ end
 
 using Test
 
+function run_testsuite(cases; only=nothing, title=nothing)
+  if title !== nothing; println("=== TEST SUITE $(title)") end
+  for (idx, (expected, code)) in enumerate(cases)
+    if only !== nothing && !(idx in only); continue end
+    println("=== TEST@$(idx) $(code)")
+    if isa(expected, DataType) && expected <: Exception
+      Test.@test_throws expected bqneval(code)
+    else
+      Test.@test expected == bqneval(code)
+    end
+  end
+end
+
 function test_bytecode(only=nothing)
   cases = [
     (5, "5                       "), #  0 PUSH,  7 RETN
@@ -662,12 +696,7 @@ function test_bytecode(only=nothing)
     (1, "1{𝕨}{𝔽{𝕩𝔽𝕨}𝔾𝔽}{𝕩}0"),    # 0≠1 via Church booleans
     (2, "0‿(0‿{𝕩}){{a‿b←𝕩⋄t←𝕤⋄{𝕤⋄T↩{𝕤⋄{a‿b←𝕩⋄a}}}{B𝕗}0⋄(T b){a‿b←𝕩⋄𝔽b}}𝕗} 0‿(1‿(2‿(3‿(4‿{𝕩}))))"),
   ]
-  for (idx, (expected, code)) in enumerate(cases)
-    if only !== nothing && !(idx in only); continue end
-    println("=== TEST@$(idx) $(code)")
-    got = bqneval(code)
-    Test.@test expected == got
-  end
+  run_testsuite(cases, only=only, title="Bytecode")
 end
 
 function test_simple(only=nothing)
@@ -693,12 +722,7 @@ function test_simple(only=nothing)
           (-0.5 , "{{-3}+√{3×3}-4×2×1}÷2×2"),
           (1    , "{a←1⋄{a←2}⋄a}"),
     ]
-  for (idx, (expected, code)) in enumerate(cases)
-    if only !== nothing && !(idx in only); continue end
-    println("=== TEST@$(idx) $(code)")
-    got = bqneval(code)
-    Test.@test expected == got
-  end
+  run_testsuite(cases, only=only, title="Simple")
 end
 
 function test_prim_0(only=nothing)
@@ -771,15 +795,125 @@ function test_prim_0(only=nothing)
            (BQNError, """!0"""),
            (BQNError, """"error"!"abc" """),
   ]
-  for (idx, (expected, code)) in enumerate(cases)
-    if only !== nothing && !(idx in only); continue end
-    println("=== TEST@$(idx) $(code)")
-    if isa(expected, DataType) && expected <: Exception
-      Test.@test_throws expected bqneval(code)
-    else
-      Test.@test expected == bqneval(code)
-    end
-  end
+  run_testsuite(cases, only=only, title="Prim, Layer 0")
+end
+
+function test_prim_1(only=nothing)
+  cases = [
+           (1, "3≡4>◶+‿-1"),
+           (1, "3≡4⊢◶+‿-1"),
+           (1, "3≡4 1◶+‿-1"),
+           (1, "5≡4<◶+‿-1"),
+           (1, "5≡4 0◶+‿-1"),
+           (1, "1≡-⊘0 ¯1"),
+           (1, "1≡¯1-⊘+2"),
+           (1, """ "abc"≡⊢"abc" """),
+           (1, """ ""≡3⊢"" """),
+           (1, "⟨⟩≡⊣⟨⟩"),
+           (1, """ "ab"≡"ab"⊣⟨⟩ """),
+           (1, "4≡+˜2"),
+           (1, "3≡1-˜4"),
+           (1, "1≡-∘×¯6"),
+           (1, "¯6≡2-∘×3"),
+           (1, "1≡-○×¯7"),
+           (1, "2≡5-○×¯7"),
+           (1, "¯20≡1⊸-⊸×5"),
+           (1, """ (0‿2+⌜0‿1)≡(>⟨"ab","cd"⟩)≢⊸⥊↕4 """),
+           (1, "20≡×⟜(-⟜1)5"),
+           (1, "4≡5+⟜×¯3"),
+           (1, "7≡5+⟜2 ¯3"),
+           (1, "2≡√4"),
+           (1, "3≡3√27"),
+           (MethodError, "√'x'"),
+           (1, "6≡2∧3"),
+           (1, "0≡¯2∧0"),
+           (MethodError, "'a'∧¯1"),
+           (1, "0.75≡∨˜0.5"),
+           (1, "1.75≡2∨0.25"),
+           (MethodError, "F←-⋄2∨f"),
+           (1, "0≡¬1"),
+           (1, "1≡¬0"),
+           (1, "2≡¬¯1"),
+           (MethodError, "¬'a'"),
+           (1, "0≡3¬4"),
+           (1, "2≡4¬3"),
+           (1, "4≡5¬2"),
+           (1, "5≡'g'¬'c'"),
+           (1, "'b'≡'c'¬2"),
+           (MethodError, "2¬'c'"),
+           (MethodError, "F←{𝕩}⋄0¬f"),
+           (1, "0≡|0"),
+           (1, "5≡|¯5"),
+           (1, "6≡|6"),
+           (1, "∞≡|¯∞"),
+           (MethodError, "F←+-⋄|f"),
+           (1, "2≡3|8"),
+           (1, "2≡3|¯7"),
+           (1, "¯1≡¯3|8"),
+           (MethodError, "26|'A'"),
+           (1, """ "a"≡⥊<'a' """),
+           (1, """ "abcd"≡⊑<"abcd" """),
+           (1, "⟨⟩≡≢<⟨2,⟨3,4⟩⟩"),
+           (1, "0≡4<2"),
+           (1, "0≡5>5"),
+           (1, "0≡3≥4"),
+           (1, """ 0≡≠"" """),
+           (1, """ 1≡≠"a" """),
+           (1, "1≡≠'a'"),
+           (1, """ 2≡≠"ab" """),
+           (1, "25≡≠↕25"),
+           (1, "1≡×5"),
+           (1, "¯1≡×¯2.5"),
+           (1, "3≡3⌊4"),
+           (1, "¯3≡¯3⌊∞"),
+           (1, "4≡3⌈4"),
+           (1, "1≡1⌈¯1"),
+           (1, "5≡⌈4.01"),
+           (1, "⟨⟩≡≢'a'"),
+           (1, "⟨⟩≡≢0"),
+           (1, "⟨0⟩‿⟨1⟩‿⟨2⟩≡⥊¨↕3"),
+           (1, """(↕6)≡⟜(≠¨)○(2‿3⊸⥊)⟨⟩‿"a"‿"ab"‿"abc"‿"abcd"‿"abcde"‿"abcdef" """),
+           (1, "≡⟜(≠¨)4‿0‿2⥊↕0"),
+           (1, "6≡+´↕4"),
+           (1, """ (⊑≡⊣´)"a"‿2‿(3‿"d") """),
+           (1, """ 0(⊑≡⊣´)"a"‿2‿(3‿"d") """),
+           (1, """ (2⊸⊑≡⊢´)"a"‿2‿(3‿"d") """),
+           (BQNError, """ ⊑"" """),
+           (BQNError, "⊑2‿0⥊⟨⟩"),
+           (1, """ 2(⊣≡⊢´)"a"‿2‿(3‿"d") """),
+           (1, "7‿10≡+¨´⟨⟨2,3⟩,⟨5,7⟩⟩"),
+           (BQNError, "+´11"),
+           (BQNError, "-´<'a'"),
+           (BQNError, """ ×´3‿1⥊"abc" """),
+  ]
+  run_testsuite(cases, only=only, title="Prim, Layer 1")
+end
+
+function test_prim_2(only=nothing)
+  cases = [
+           (1, """ ⟨⟩≡⟨⟩∾"" """),
+           (1, """ "a"≡⟨⟩∾"a" """),
+           (1, """ "a"≡"a"∾⟨⟩ """),
+           (1, """ "aBCD"≡"a"∾"BCD" """),
+           (1, """ ((+⌜˜≠¨)≡(≠¨∾⌜˜))""‿⟨2,3⟩‿"abcde" """),
+           (1, """ (⥊⟜(↕×´)≡(×⟜4)⊸(+⌜)○↕´)3‿4 """),
+           (1, """ (⥊⟜(↕×´)≡(×⟜4)⊸(+⌜)○↕´)0‿4 """),
+           (1, """ (3‿2‿0⥊"")≡(3‿2⥊↕6)+⌜"" """),
+           # (1, """ (<-2)≡-¨2 """),
+           # (1, """ (<<2)≡<¨2 """),
+           # (1, """ ⟨1,⟨3,2,2‿2⥊⟨1,0,2,0⟩⟩,⟨5,4⟩⟩≡-⟨-1,⟨-3,-2,-¨2‿2⥊⟨1,0,2,0⟩⟩,⟨-5,-4⟩⟩ """),
+           # (1, """ 3(+¨≡+⌜)↕6 """),
+           # (1, """ ! % 2‿3⊢¨4‿5‿6 """),
+           # (1, """ ! % "abcd"-"a" """),
+           # (1, """ 3‿4‿5‿6‿6≡{𝕊⍟(×≡)⊸∾⟜⥊´𝕩}⟨2,1⟩+⟨⟨⟨⟨1,2⟩,3⟩,4⟩,5⟩ """),
+           # (1, """ 3‿2≡≢(↕3)(⊣×⊢⌜)↕2 """),
+           # (1, """ (<-4)≡-<4 """),
+           # (1, """ (<2)≡1+<1 """),
+           # (1, """ ! % (↕4)×(↕3)⊢⌜↕2 """),
+           # (1, """ (=¨⟜(⥊⟜(↕×´)3‿4)≡(↕4)=⌜˜4|⊢)1‿6‿8 """),
+           # (1, """ 0‿1≡+‿-=⊑⟨-⟩ """),
+          ]
+  run_testsuite(cases, only=only, title="Prim, Layer 2")
 end
 
 function provide_decompose(𝕨, 𝕩)
@@ -828,17 +962,13 @@ _provide = [
   provide_decompose,
   provide_prim_ind,
 ]
-
 _provide_set = Set(𝕗 for 𝕗 in _provide)
-
 provide(n::Int64) = _provide[n + 1]
 
 # _runtime_0 = bqneval("r0")
-
 # runtime_0(n::Int64) = _runtime_0[n + 1]
 
 _runtime, set_prims, set_inv = bqneval("r")
-
 runtime(n::Int64) = _runtime[n + 1]
 
 end
