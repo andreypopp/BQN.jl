@@ -217,7 +217,7 @@ module Runtime
   bqneq(𝕨::None, 𝕩::Arr) = ndims(𝕩.storage)
   bqneq(𝕨::None, 𝕩::String) = 1
   bqneq(𝕨::None, 𝕩) = 0
-  bqneq(𝕨, 𝕩) = 𝕨 == 𝕩
+  bqneq(𝕨, 𝕩) = Int(𝕨 == 𝕩)
 
   bqnlte(𝕨, 𝕩) = 𝕨 <= 𝕩
   bqnlte(𝕨::Number, 𝕩::Char) = 1
@@ -227,12 +227,7 @@ module Runtime
   bqnshape(𝕨, 𝕩::String) = Arr([length(𝕩)])
   bqnshape(𝕨, 𝕩) = Arr([])
 
-  function bqndeshape(𝕨::None, 𝕩::Arr)
-    # if length(𝕩) < 30
-    #   println("bqndeshape ", 𝕩.storage, " ", vec(𝕩.storage))
-    # end
-    Arr(vec(𝕩.storage))
-  end
+  bqndeshape(𝕨::None, 𝕩::Arr) = Arr(vec(𝕩.storage))
   bqndeshape(𝕨::None, 𝕩::String) = 𝕩
   bqndeshape(𝕨::None, 𝕩) = Arr([𝕩])
 
@@ -246,17 +241,15 @@ module Runtime
   end
 
   function bqndeshape(𝕨::Arr, 𝕩::Arr)
-    # if length(𝕩) < 30
-    #   println("bqndeshape2 ", 𝕨, " ", 𝕩.storage, " ", vec(𝕩.storage))
-    # end
     size = Tuple(𝕨)
+    if size == Base.size(𝕩.storage); return 𝕩 end
     Arr(row_major_reshape(𝕩.storage, size...))
   end
 
   function bqndeshape(𝕨::Arr, 𝕩::String)
-    𝕨m = *(bqnshape(none, 𝕨)...)
-    𝕩m = *(bqnshape(none, 𝕩)...)
-    return Int(𝕨m == 𝕩m)
+    𝕩 = collect(𝕩)
+    size = Tuple(𝕨)
+    Arr(row_major_reshape(𝕩, size...))
   end
   function bqndeshape(𝕨::Arr, 𝕩::Any)
     @assert length(𝕨) == 0
@@ -265,6 +258,7 @@ module Runtime
 
   bqnpick(𝕨::Number, 𝕩::Number) = 𝕩
   function bqnpick(𝕨::Number, 𝕩::Arr)
+    # println("bqnpick ", 𝕨, ' ', 𝕩.storage[Int(𝕨) + 1])
     𝕩.storage[Int(𝕨) + 1]
   end
   bqnpick(𝕨::None, 𝕩::Arr) = bqnpick(0, 𝕩)
@@ -291,15 +285,20 @@ module Runtime
       else
         if !isa(𝕨, Arr); 𝕨 = collect(𝕨) end
         if !isa(𝕩, Arr); 𝕩 = collect(𝕩) end
-        len𝕨 = length(𝕨)
-        len𝕩 = length(𝕩)
-        result = Arr(zeros((len𝕨, len𝕩)))
-        for i in 1:len𝕨
-          for j in 1:len𝕩
-            result.storage[i,j] = call(𝕗, 𝕨[i], 𝕩[j])
+        # println("SS ", 𝕨, " ", 𝕩)
+        sizeres = (size(𝕨)..., size(𝕩)...)
+        storage = []
+        sizehint!(storage, *(sizeres...))
+        for j in 1:length(𝕩)
+          for i in 1:length(𝕨)
+            v = call(𝕗, 𝕨[i], 𝕩[j])
+            # println(𝕨[i], ' ', 𝕩[j], ' ', v)
+            push!(storage, v)
           end
         end
-        result
+        storage = reshape(storage, sizeres)
+        # println(storage)
+        Arr(storage)
       end
     end
   end
@@ -899,19 +898,19 @@ function test_prim_2(only=nothing)
            (1, """ (⥊⟜(↕×´)≡(×⟜4)⊸(+⌜)○↕´)3‿4 """),
            (1, """ (⥊⟜(↕×´)≡(×⟜4)⊸(+⌜)○↕´)0‿4 """),
            (1, """ (3‿2‿0⥊"")≡(3‿2⥊↕6)+⌜"" """),
-           # (1, """ (<-2)≡-¨2 """),
-           # (1, """ (<<2)≡<¨2 """),
-           # (1, """ ⟨1,⟨3,2,2‿2⥊⟨1,0,2,0⟩⟩,⟨5,4⟩⟩≡-⟨-1,⟨-3,-2,-¨2‿2⥊⟨1,0,2,0⟩⟩,⟨-5,-4⟩⟩ """),
-           # (1, """ 3(+¨≡+⌜)↕6 """),
-           # (1, """ ! % 2‿3⊢¨4‿5‿6 """),
-           # (1, """ ! % "abcd"-"a" """),
-           # (1, """ 3‿4‿5‿6‿6≡{𝕊⍟(×≡)⊸∾⟜⥊´𝕩}⟨2,1⟩+⟨⟨⟨⟨1,2⟩,3⟩,4⟩,5⟩ """),
-           # (1, """ 3‿2≡≢(↕3)(⊣×⊢⌜)↕2 """),
-           # (1, """ (<-4)≡-<4 """),
-           # (1, """ (<2)≡1+<1 """),
-           # (1, """ ! % (↕4)×(↕3)⊢⌜↕2 """),
-           # (1, """ (=¨⟜(⥊⟜(↕×´)3‿4)≡(↕4)=⌜˜4|⊢)1‿6‿8 """),
-           # (1, """ 0‿1≡+‿-=⊑⟨-⟩ """),
+           (1, """ (<-2)≡-¨2 """),
+           (1, """ (<<2)≡<¨2 """),
+           (1, """ ⟨1,⟨3,2,2‿2⥊⟨1,0,2,0⟩⟩,⟨5,4⟩⟩≡-⟨-1,⟨-3,-2,-¨2‿2⥊⟨1,0,2,0⟩⟩,⟨-5,-4⟩⟩ """),
+           (1, """ 3(+¨≡+⌜)↕6 """),
+           (BQNError, """ 2‿3⊢¨4‿5‿6 """),
+           (BQNError, """ "abcd"-"a" """),
+           (1, """ 3‿4‿5‿6‿6≡{𝕊⍟(×≡)⊸∾⟜⥊´𝕩}⟨2,1⟩+⟨⟨⟨⟨1,2⟩,3⟩,4⟩,5⟩ """),
+           (1, """ 3‿2≡≢(↕3)(⊣×⊢⌜)↕2 """),
+           (1, """ (<-4)≡-<4 """),
+           (1, """ (<2)≡1+<1 """),
+           (BQNError, """ (↕4)×(↕3)⊢⌜↕2 """),
+           (1, """ (=¨⟜(⥊⟜(↕×´)3‿4)≡(↕4)=⌜˜4|⊢)1‿6‿8 """),
+           (1, """ 0‿1≡+‿-=⊑⟨-⟩ """),
           ]
   run_testsuite(cases, only=only, title="Prim, Layer 2")
 end
