@@ -2,6 +2,8 @@ module BQN
 using Logging
 using Debugger
 
+struct BQNError <: Exception msg::String end
+
 abstract type Var end
 
 struct None end
@@ -49,25 +51,12 @@ function Base.show(io::IO, x::Arr)
   show(io, x.storage)
 end
 
-function Base.size(xs::Arr)
-  size(xs.storage)
-end
+Base.size(xs::Arr) = size(xs.storage)
+Base.iterate(xs::Arr) = iterate(xs.storage)
+Base.iterate(xs::Arr, n::Int64) = iterate(xs.storage, n)
+Base.getindex(xs::Arr, idx::Int64) = getindex(xs.storage, idx)
+Base.length(coll::Arr) = length(coll.storage)
 
-function Base.iterate(xs::Arr)
-  iterate(xs.storage)
-end
-
-function Base.iterate(xs::Arr, n::Int64)
-  iterate(xs.storage, n)
-end
-
-function Base.getindex(xs::Arr, idx::Int64)
-  getindex(xs.storage, idx)
-end
-
-function Base.length(coll::Arr)
-  return length(coll.storage)
-end
 function Base.map(f, coll::Arr)
   res = Arr(length(coll))
   for v in coll.storage; push!(res.storage, f(nothing, v)) end
@@ -170,11 +159,16 @@ function call(𝕤::TR3O, 𝕨, 𝕩)
 end
 call(𝕤::M1, 𝕨, 𝕩) = 𝕤.run(𝕤, 𝕨, 𝕩, nothing, 𝕤.𝕗)
 call(𝕤::M2, 𝕨, 𝕩) = 𝕤.run(𝕤, 𝕨, 𝕩, 𝕤.𝕘, 𝕤.𝕗)
-call(𝕤, 𝕨, 𝕩) = 𝕤(𝕨, 𝕩)
+function call(𝕤, 𝕨, 𝕩)
+  @debug "PRIMITIVE $(𝕤) 𝕨=$(𝕨) 𝕩=$(𝕩)"
+  res = 𝕤(𝕨, 𝕩)
+  @debug "PRIMITIVE $(𝕤) res=$(res)"
+  res
+end
 
 module Runtime
   using Debugger
-  import ..Arr, ..None, ..none, ..call, ..F, ..TR2D, ..TR3D, ..TR3O, ..M1, ..M2
+  import ..Arr, ..None, ..none, ..call, ..F, ..TR2D, ..TR3D, ..TR3O, ..M1, ..M2, ..BQNError
 
   bqnadd(𝕨::None, 𝕩) = 𝕩
   bqnadd(𝕨, 𝕩) = 𝕨 + 𝕩
@@ -225,28 +219,30 @@ module Runtime
   bqneq(𝕨, 𝕩) = 𝕨 == 𝕩
 
   bqnlte(𝕨, 𝕩) = 𝕨 <= 𝕩
+  bqnlte(𝕨::Number, 𝕩::Char) = 1
+  bqnlte(𝕨::Char, 𝕩::Number) = 0
 
   bqnshape(𝕨, 𝕩::Arr) = Arr([x for x in size(𝕩)])
   bqnshape(𝕨, 𝕩::String) = Arr([length(𝕩)])
   bqnshape(𝕨, 𝕩) = Arr([])
 
   bqndeshape(𝕨::None, 𝕩::Arr) = Arr(vec(𝕩.storage))
-  function bqndeshape(𝕨, 𝕩::Arr)
-    𝕨m = *(bqnshape(none, 𝕨)...)
-    𝕩m = *(bqnshape(none, 𝕩)...)
-    return Int(𝕨m == 𝕩m)
-  end
-
   bqndeshape(𝕨::None, 𝕩::String) = 𝕩
+  bqndeshape(𝕨::None, 𝕩) = Arr([𝕩])
 
-  function bqndeshape(𝕨, 𝕩::String)
+  function bqndeshape(𝕨::Arr, 𝕩::Arr)
+    dims = Tuple(𝕨)
+    Arr(reshape(𝕩.storage, dims))
+  end
+
+  function bqndeshape(𝕨::Arr, 𝕩::String)
     𝕨m = *(bqnshape(none, 𝕨)...)
     𝕩m = *(bqnshape(none, 𝕩)...)
     return Int(𝕨m == 𝕩m)
   end
-
-  function bqndeshape(𝕨::None, 𝕩)
-    return Arr([𝕩])
+  function bqndeshape(𝕨::Arr, 𝕩::Any)
+    @assert length(𝕨) == 0
+    Arr(reshape([𝕩], ()))
   end
 
   bqnpick(𝕨::Number, 𝕩::Number) = 𝕩
@@ -264,7 +260,7 @@ module Runtime
     # over graphemes for Strings
     function(𝕨, 𝕩)
       if 𝕨 === none
-        if isa(𝕩, String); 𝕩 = collect(𝕩) end
+        if !isa(𝕩, Arr); 𝕩 = collect(𝕩) end
         len𝕩 = length(𝕩)
         result = Arr(len𝕩)
         for i in 1:len𝕩
@@ -272,8 +268,8 @@ module Runtime
         end
         result
       else
-        if isa(𝕨, String); 𝕨 = collect(𝕨) end
-        if isa(𝕩, String); 𝕩 = collect(𝕩) end
+        if !isa(𝕨, Arr); 𝕨 = collect(𝕨) end
+        if !isa(𝕩, Arr); 𝕩 = collect(𝕩) end
         len𝕨 = length(𝕨)
         len𝕩 = length(𝕩)
         result = Arr(zeros((len𝕨, len𝕩)))
@@ -304,13 +300,16 @@ module Runtime
   bqntype(𝕨::None, 𝕩::Number) = 1
   bqntype(𝕨::None, 𝕩::Char) = 2
   bqntype(𝕨::None, 𝕩::Function) = 3
+  bqntype(𝕨::None, 𝕩::TR2D) = 3
+  bqntype(𝕨::None, 𝕩::TR3D) = 3
+  bqntype(𝕨::None, 𝕩::TR3O) = 3
   bqntype(𝕨::None, 𝕩::F) = 3
   bqntype(𝕨::None, 𝕩::M1) = 4
   bqntype(𝕨::None, 𝕩::M2) = 5
 
-  function bqnfill(𝕨, 𝕩)
-    0
-  end
+  bqnfill(𝕨::None, 𝕩::String) = ' '
+  bqnfill(𝕨::None, 𝕩::Arr) = 0
+  bqnfill(𝕨, 𝕩) = 𝕩
 
   function bqngrouplen(𝕨, 𝕩)
     order = []
@@ -326,15 +325,10 @@ module Runtime
     Arr([lengths[x] for x in order])
   end
 
-  struct BQNError <: Exception
-    msg::String
-  end
-
   function bqnassert(𝕨, 𝕩)
-    if Bool(𝕩)
+    if 𝕩 == 1
       1
     else
-      @bp
       msg = 𝕨 === none ? "ERROR" : 𝕨
       throw(BQNError(msg))
     end
@@ -713,8 +707,8 @@ function test_prim_0(only=nothing)
            (1, """1e4≡5e3+5e3"""),
            (1, """'c'≡'a'+2"""),
            (1, """'a'≡¯2+'c'"""),
-           (1, """! % 'a'+'c'"""),
-           (1, """! % F←-⋄f+2"""),
+           (MethodError, """'a'+'c'"""),
+           (MethodError, """F←-⋄f+2"""),
            (1, """¯∞≡1e6-∞"""),
            (1, """4≡-¯4"""),
            (1, """¯∞≡-∞"""),
@@ -723,28 +717,28 @@ function test_prim_0(only=nothing)
            (1, """@≡'a'-97"""),
            (1, """3≡'d'-'a'"""),
            (1, """'Q'≡'q'+'A'-'a'"""),
-           (1, """! % 97-'a'"""),
-           (1, """! % @-1"""),
-           (1, """! % -'a'"""),
-           (1, """! % F←÷⋄-f"""),
+           (MethodError, """97-'a'"""),
+           (InexactError, """@-1"""),
+           (MethodError, """-'a'"""),
+           (MethodError, """F←÷⋄-f"""),
            (1, """1.5≡3×0.5"""),
-           (1, """! % 2×'a'"""),
+           (MethodError, """2×'a'"""),
            (1, """4≡÷0.25"""),
            (1, """∞≡÷0"""),
            (1, """0≡÷∞"""),
-           (1, """! % ÷'b'"""),
-           (1, """! % F←√-⋄÷f"""),
+           (MethodError, """÷'b'"""),
+           (MethodError, """F←√-⋄÷f"""),
            (1, """1≡⋆0"""),
            (1, """¯1≡¯1⋆5"""),
            (1, """1≡¯1⋆¯6"""),
-           (1, """! % ⋆'π'"""),
-           (1, """! % 'e'⋆'π'"""),
+           (MethodError, """⋆'π'"""),
+           (MethodError, """'e'⋆'π'"""),
            (1, """3≡⌊3.9"""),
            (1, """¯4≡⌊¯3.9"""),
            (1, """∞≡⌊∞"""),
            (1, """¯∞≡⌊¯∞"""),
            (1, """¯1e30≡⌊¯1e30"""),
-           (1, """! % F←⌈⋄⌊f"""),
+           (MethodError, """F←⌈⋄⌊f"""),
            (1, """1≡1=1"""),
            (1, """0≡¯1=∞"""),
            (1, """1≡'a'='a'"""),
@@ -761,7 +755,7 @@ function test_prim_0(only=nothing)
            (1, """0≡'z'≤¯0.5"""),
            (1, """1≡'a'≤'a'"""),
            (1, """0≡'c'≤'a'"""),
-           (1, """! % F←+⋄G←-⋄f≤g"""),
+           (MethodError, """F←+⋄G←-⋄f≤g"""),
            (1, """⟨⟩≡≢<2"""),
            (1, """⟨3⟩≡≢"abc" """),
            (1, """⟨2,3⟩≡≢>"abc"‿"fed" """),
@@ -774,15 +768,17 @@ function test_prim_0(only=nothing)
            (1, """⟨0,1,2,3,4,5,6⟩≡↕7"""),
            (1, """1≡!1"""),
            (1, """1≡'e'!1"""),
-           (1, """! % !0"""),
-           (1, """! % "error"!"abc" """),
+           (BQNError, """!0"""),
+           (BQNError, """"error"!"abc" """),
   ]
   for (idx, (expected, code)) in enumerate(cases)
-    if collect(code)[1] == '!'; continue end
     if only !== nothing && !(idx in only); continue end
     println("=== TEST@$(idx) $(code)")
-    got = bqneval(code)
-    Test.@test expected == got
+    if isa(expected, DataType) && expected <: Exception
+      Test.@test_throws expected bqneval(code)
+    else
+      Test.@test expected == bqneval(code)
+    end
   end
 end
 
