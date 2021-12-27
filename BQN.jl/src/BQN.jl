@@ -165,12 +165,7 @@ function call(𝕤::TR3O, 𝕨, 𝕩)
 end
 call(𝕤::M1, 𝕨, 𝕩) = 𝕤.run(𝕤, 𝕨, 𝕩, nothing, 𝕤.𝕗)
 call(𝕤::M2, 𝕨, 𝕩) = 𝕤.run(𝕤, 𝕨, 𝕩, 𝕤.𝕘, 𝕤.𝕗)
-function call(𝕤, 𝕨, 𝕩)
-  @debug "PRIMITIVE $(𝕤)"
-  res = 𝕤(𝕨, 𝕩)
-  @debug "PRIMITIVE $(𝕤)"
-  res
-end
+call(𝕤, 𝕨, 𝕩) = (@debug "PRIMITIVE $(𝕤)"; 𝕤(𝕨, 𝕩))
 
 module Runtime
   using Debugger
@@ -230,7 +225,7 @@ module Runtime
   bqnlte(𝕨::Number, 𝕩::Char) = 1
   bqnlte(𝕨::Char, 𝕩::Number) = 0
 
-  bqnshape(𝕨, 𝕩::Arr) = Arr([x for x in size(𝕩)])
+  bqnshape(𝕨, 𝕩::Arr) = Arr(reverse([x for x in size(𝕩)]))
   bqnshape(𝕨, 𝕩::String) = Arr([length(𝕩)])
   bqnshape(𝕨, 𝕩) = Arr([])
 
@@ -238,17 +233,17 @@ module Runtime
   bqndeshape(𝕨::None, 𝕩::String) = 𝕩
   bqndeshape(𝕨::None, 𝕩) = Arr([𝕩])
 
-  function row_major_reshape(𝕩::AbstractArray, size...)
-    𝕩 = reshape(𝕩, reverse([size...])...)
-    if size != ()
-      size_perm = length(size):-1:1
-      𝕩 = permutedims(𝕩, size_perm)
-    end
-    𝕩
-  end
+  # function row_major_reshape(𝕩::AbstractArray, size...)
+  #   𝕩 = reshape(𝕩, reverse([size...])...)
+  #   if size != ()
+  #     size_perm = length(size):-1:1
+  #     𝕩 = permutedims(𝕩, size_perm)
+  #   end
+  #   𝕩
+  # end
 
   function bqndeshape(𝕨::Arr, 𝕩::Arr)
-    size = Tuple(Int(x) for x in 𝕨)
+    size = reverse(Tuple(Int(x) for x in 𝕨))
     if size == Base.size(𝕩.storage); return 𝕩 end
     Arr(reshape(𝕩.storage, size))
   end
@@ -265,7 +260,7 @@ module Runtime
 
   bqnpick(𝕨::Number, 𝕩::Number) = 𝕩
   function bqnpick(𝕨::Number, 𝕩::Arr)
-    println("bqnpick ", 𝕨, ' ', 𝕩)
+    # println("bqnpick ", 𝕨, ' ', 𝕩)
     𝕩.storage[Int(𝕨) + 1]
   end
   bqnpick(𝕨::None, 𝕩::Arr) = bqnpick(0, 𝕩)
@@ -293,7 +288,7 @@ module Runtime
       else
         if !isa(𝕨, Arr); 𝕨 = collect(𝕨) end
         if !isa(𝕩, Arr); 𝕩 = collect(𝕩) end
-        sizeres = (size(𝕨)..., size(𝕩)...)
+        sizeres = (size(𝕩)..., size(𝕨)...)
         storage = []
         sizehint!(storage, sizeres != () ? *(sizeres...) : 1)
         for i in 1:length(𝕨)
@@ -309,34 +304,50 @@ module Runtime
   end
 
   function bqnscan(𝕘, 𝕗)
-    function(𝕨, 𝕩)
+    function(𝕨, 𝕩::Arr)
+      bqnassert(
+                "`: Argument cannot have rank 0",
+                Int(ndims(𝕩.storage) != 0))
+      bqnassert(
+                "`: Shape of 𝕨 must match the cell of 𝕩",
+                Int(𝕨 == none ||
+                    size(𝕨) == () && ndims(𝕩.storage) == 1 ||
+                    size(𝕨)[1:1] == size(𝕩)[1:1]))
       @debug "PRIMITIVE bqnscan"
-      curr = 𝕨
-      result = Arr(length(𝕩))
-      for x in 𝕩.storage
-        if curr == none
-          curr = x
-          push!(result.storage, x)
-        else
-          curr = call(𝕗, curr, x)
-          push!(result.storage, curr)
-        end
+      # TODO: Consider remove call(...) and implementing the callable interface
+      #       in Julia, then we can get rid of 𝕗′ below
+      𝕗′ = (𝕨, 𝕩) -> call(𝕗, 𝕨, 𝕩)
+      storage = if 𝕨 == none
+        accumulate(𝕗′, 𝕩.storage, dims=ndims(𝕩.storage))
+      elseif size(𝕨) == ()
+        accumulate(𝕗′, 𝕩.storage, dims=ndims(𝕩.storage), init=𝕨)
+      else
+        # Because accumulate() doesn't support init being an array we provide
+        # init value by concatenating it over the major dimension with hvncat():
+        storage = hvncat(ndims(𝕩.storage), 𝕨.storage, 𝕩.storage)
+        storage = accumulate(𝕗′, storage, dims=ndims(𝕩.storage))
+        # ... but this will produce an extra "row" in this dimension so we
+        # produce a view which "cuts" that out with a view over this array:
+        # TODO: Revisit that for performance!
+        indices = [(:) for _ in size(storage)[1:end - 1]]
+        storage = @view storage[indices..., 2:end]
+        storage
       end
-      result
+      Arr(storage)
     end
   end
 
-  bqntype(𝕨::None, 𝕩::Arr) = (println(𝕩);0)
-  bqntype(𝕨::None, 𝕩::String) = (println(𝕩);0)
-  bqntype(𝕨::None, 𝕩::Number) = (println(𝕩);1)
-  bqntype(𝕨::None, 𝕩::Char) = (println(𝕩);2)
-  bqntype(𝕨::None, 𝕩::Function) = (println(𝕩);3)
-  bqntype(𝕨::None, 𝕩::TR2D) = (println(𝕩);3)
-  bqntype(𝕨::None, 𝕩::TR3D) = (println(𝕩);3)
-  bqntype(𝕨::None, 𝕩::TR3O) = (println(𝕩);3)
-  bqntype(𝕨::None, 𝕩::F) = (println(𝕩);3)
-  bqntype(𝕨::None, 𝕩::M1) = (println(𝕩);4)
-  bqntype(𝕨::None, 𝕩::M2) = (println(𝕩);5)
+  bqntype(𝕨::None, 𝕩::Arr) = 0
+  bqntype(𝕨::None, 𝕩::String) = 0
+  bqntype(𝕨::None, 𝕩::Number) = 1
+  bqntype(𝕨::None, 𝕩::Char) = 2
+  bqntype(𝕨::None, 𝕩::Function) = 3
+  bqntype(𝕨::None, 𝕩::TR2D) = 3
+  bqntype(𝕨::None, 𝕩::TR3D) = 3
+  bqntype(𝕨::None, 𝕩::TR3O) = 3
+  bqntype(𝕨::None, 𝕩::F) = 3
+  bqntype(𝕨::None, 𝕩::M1) = 4
+  bqntype(𝕨::None, 𝕩::M2) = 5
 
   bqnfill(𝕨::None, 𝕩::String) = ' '
   bqnfill(𝕨::None, 𝕩::Arr) = 0
@@ -345,7 +356,9 @@ module Runtime
   function bqngrouplen(𝕨, 𝕩)
     order = []
     lengths = Dict{Int,Int}()
+    max𝕩 = -1
     for x in 𝕩.storage
+      max𝕩 = max(max𝕩, x)
       if haskey(lengths, x)
         lengths[x] += 1
       else
@@ -353,14 +366,18 @@ module Runtime
         push!(order, x)
       end
     end
-    Arr([lengths[x] for x in order])
+    storage = [get(lengths, x, 0) for x in 0:max𝕩]
+    Arr(storage)
   end
 
   function bqnassert(𝕨, 𝕩)
+    # println(𝕩)
     if 𝕩 == 1
       1
     else
-      msg = 𝕨 === none ? "ERROR" : 𝕨
+      # TODO: should we use 𝕩 as error message in case it's a string? r1.bqn
+      # seems to be relying on that behaviour... see !∘"msg" pattern.
+      msg = 𝕨 === none ? (isa(𝕩, String) ? 𝕩 : "ERROR") : 𝕨
       throw(BQNError(msg))
     end
   end
@@ -481,9 +498,15 @@ function vm(src, code, consts, blocks, bodies, toks)
     elseif typ == 2 && imm == 1 # mod2 immediate
       M2(run, nothing, nothing)
     elseif typ == 1 && imm == 0 # mod1 deferred
-      function(𝕘, 𝕗); M1(run, 𝕗) end
+      function(𝕘, 𝕗)
+        𝕤 = F(function(𝕨, 𝕩) run(𝕤, 𝕨, 𝕩, nothing, 𝕗) end)
+        𝕤
+      end
     elseif typ == 2 && imm == 0 # mod2 deferred
-      function(𝕘, 𝕗); M2(run, 𝕘, 𝕗) end
+      function(𝕘, 𝕗)
+        𝕤 = F(function(𝕨, 𝕩) run(𝕤, 𝕨, 𝕩, 𝕘, 𝕗) end)
+        𝕤
+      end
     end
   end
 
@@ -1047,19 +1070,19 @@ function test_prim_4(only=nothing)
            (BQNError, """ 2+⍟1‿'c'4 """),
            (BQNError, """ ⋆⍟1.5 2 """),
            (1, """ 4≡2+⍟¯1 6 """),
-           # (1, """ (2×↕7)≡2+⍟(¯3+↕7)6 """),
+           (1, """ (2×↕7)≡2+⍟(¯3+↕7)6 """),
            (1, """ (3⌊↕5)≡{i←0⋄r←{i+↩1⋄1+𝕩}⍟(↕4)𝕩⋄r∾i}0 """),
            (1, """ (+⌜˜≡·>1+⍟⊢⊢)↕5 """),
            (1, """ 0‿1‿3‿6‿10≡+`↕5 """),
            (1, """ (-0‿1‿3‿6‿10)≡-`↕5 """),
-           # (1, """ ((0∾¨↕3)≍3⥊0)≡≡`↕2‿3 """),
+           (1, """ ((0∾¨↕3)≍3⥊0)≡≡`↕2‿3 """),
            (1, """ ⟨⟩≡×`⟨⟩ """),
-           # (1, """ ≡⟜(!∘0`)3‿0‿2⥊"" """),
-           # (BQNError, """ +`4 """),
-           # (BQNError, """ +`<'c' """),
+           (1, """ ≡⟜(!∘0`)3‿0‿2⥊"" """),
+           (MethodError, """ +`4 """),
+           (BQNError, """ +`<'c' """),
            (1, """ 2‿3‿5‿8‿12≡2+`↕5 """),
-           # (1, """ 3‿4+`4+⌜○↕3 """),
-           # (1, """ (2⋆1‿2‿6×⌜0‿2)≡3‿4⋆`3+⌜○↕2 """),
+           (BQNError, """ 3‿4+`4+⌜○↕3 """),
+           (1, """ (2⋆1‿2‿6×⌜0‿2)≡3‿4⋆`3+⌜○↕2 """),
   ]
   run_testsuite(cases, only=only, title="Prim, Layer 4")
 end
