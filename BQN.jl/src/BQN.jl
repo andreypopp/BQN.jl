@@ -145,31 +145,30 @@ end
 
 Base.show(io::IO, f::M2) = show(io, "<BQN 2-modifier>")
 
-call(𝕤::Arr, 𝕨, 𝕩) = 𝕤
-call(𝕤::Float64, 𝕨, 𝕩) = 𝕤
-call(𝕤::Int, 𝕨, 𝕩) = 𝕤
-call(𝕤::Char, 𝕨, 𝕩) = 𝕤
-call(𝕤::Bool, 𝕨, 𝕩) = 𝕤
-call(𝕤::String, 𝕨, 𝕩) = 𝕤
-call(𝕤::F, 𝕨, 𝕩) = call(𝕤.𝕗, 𝕨, 𝕩)
-call(𝕤::TR2D, 𝕨, 𝕩) = call(𝕤.h, none, call(𝕤.𝕘, 𝕨, 𝕩))
-function call(𝕤::TR3D, 𝕨, 𝕩)
-  𝕩´ = call(𝕤.𝕗, 𝕨, 𝕩)
-  𝕨´ = call(𝕤.𝕘, 𝕨, 𝕩)
-  call(𝕤.h, 𝕨´, 𝕩´)
+(𝕤::Arr)(𝕨, 𝕩) = 𝕤
+(𝕤::Float64)(𝕨, 𝕩) = 𝕤
+(𝕤::Int)(𝕨, 𝕩) = 𝕤
+(𝕤::Char)(𝕨, 𝕩) = 𝕤
+(𝕤::Bool)(𝕨, 𝕩) = 𝕤
+(𝕤::String)(𝕨, 𝕩) = 𝕤
+(𝕤::F)(𝕨, 𝕩) = 𝕤.𝕗(𝕨, 𝕩)
+(𝕤::TR2D)(𝕨, 𝕩) = 𝕤.h(none, 𝕤.𝕘(𝕨, 𝕩))
+function (𝕤::TR3D)(𝕨, 𝕩)
+  𝕩´ = 𝕤.𝕗(𝕨, 𝕩)
+  𝕨´ = 𝕤.𝕘(𝕨, 𝕩)
+  𝕤.h(𝕨´, 𝕩´)
 end
-function call(𝕤::TR3O, 𝕨, 𝕩)
-  𝕩´ = call(𝕤.𝕗, 𝕨, 𝕩)
-  𝕨´ = 𝕤.𝕘 != none ? call(𝕤.𝕘, 𝕨, 𝕩) : none
-  call(𝕤.h, 𝕨´, 𝕩´)
+function (𝕤::TR3O)(𝕨, 𝕩)
+  𝕩´ = 𝕤.𝕗(𝕨, 𝕩)
+  𝕨´ = 𝕤.𝕘 != none ? 𝕤.𝕘(𝕨, 𝕩) : none
+  𝕤.h(𝕨´, 𝕩´)
 end
-call(𝕤::M1, 𝕨, 𝕩) = 𝕤.run(𝕤, 𝕨, 𝕩, nothing, 𝕤.𝕗)
-call(𝕤::M2, 𝕨, 𝕩) = 𝕤.run(𝕤, 𝕨, 𝕩, 𝕤.𝕘, 𝕤.𝕗)
-call(𝕤, 𝕨, 𝕩) = (@debug "PRIMITIVE $(𝕤)"; 𝕤(𝕨, 𝕩))
+(𝕤::M1)(𝕨, 𝕩) = 𝕤.run(𝕤, 𝕨, 𝕩, nothing, 𝕤.𝕗)
+(𝕤::M2)(𝕨, 𝕩) = 𝕤.run(𝕤, 𝕨, 𝕩, 𝕤.𝕘, 𝕤.𝕗)
 
 module Runtime
   using Debugger
-  import ..Arr, ..None, ..none, ..call, ..F, ..TR2D, ..TR3D, ..TR3O, ..M1, ..M2, ..BQNError
+  import ..Arr, ..None, ..none, ..F, ..TR2D, ..TR3D, ..TR3O, ..M1, ..M2, ..BQNError
 
   bqnadd(𝕨::None, 𝕩) = 𝕩
   bqnadd(𝕨, 𝕩) = 𝕨 + 𝕩
@@ -198,9 +197,9 @@ module Runtime
     function (𝕨, 𝕩)
       @debug "PRIMITIVE bqnvalences"
       if 𝕨 === none
-        call(𝕗, 𝕨, 𝕩)
+        𝕗(𝕨, 𝕩)
       else
-        call(𝕘, 𝕨, 𝕩)
+        𝕘(𝕨, 𝕩)
       end
     end
   end
@@ -209,9 +208,9 @@ module Runtime
     function (𝕨, 𝕩)
       @debug "PRIMITIVE bqncatch"
       try
-        call(𝕗, 𝕨, 𝕩)
+        𝕗(𝕨, 𝕩)
       catch e
-        call(𝕘, 𝕨, 𝕩)
+        𝕘(𝕨, 𝕩)
       end
     end
   end
@@ -279,7 +278,7 @@ module Runtime
         storage = []
         sizehint!(storage, len𝕩)
         for i in 1:len𝕩
-          push!(storage, call(𝕗, none, 𝕩[i]))
+          push!(storage, 𝕗(none, 𝕩[i]))
         end
         Arr(reshape(storage, size𝕩))
       else
@@ -290,7 +289,7 @@ module Runtime
         sizehint!(storage, sizeres != () ? *(sizeres...) : 1)
         for i in 1:length(𝕨)
           for j in 1:length(𝕩)
-            v = call(𝕗, 𝕨[i], 𝕩[j])
+            v = 𝕗(𝕨[i], 𝕩[j])
             push!(storage, v)
           end
         end
@@ -311,18 +310,15 @@ module Runtime
                     size(𝕨) == () && ndims(𝕩.storage) == 1 ||
                     size(𝕨)[1:1] == size(𝕩)[1:1]))
       @debug "PRIMITIVE bqnscan"
-      # TODO: Consider remove call(...) and implementing the callable interface
-      #       in Julia, then we can get rid of 𝕗′ below
-      𝕗′ = (𝕨, 𝕩) -> call(𝕗, 𝕨, 𝕩)
       storage = if 𝕨 == none
-        accumulate(𝕗′, 𝕩.storage, dims=ndims(𝕩.storage))
+        accumulate(𝕗, 𝕩.storage, dims=ndims(𝕩.storage))
       elseif size(𝕨) == ()
-        accumulate(𝕗′, 𝕩.storage, dims=ndims(𝕩.storage), init=𝕨)
+        accumulate(𝕗, 𝕩.storage, dims=ndims(𝕩.storage), init=𝕨)
       else
         # Because accumulate() doesn't support init being an array we provide
         # init value by concatenating it over the major dimension with hvncat():
         storage = hvncat(ndims(𝕩.storage), 𝕨.storage, 𝕩.storage)
-        storage = accumulate(𝕗′, storage, dims=ndims(𝕩.storage))
+        storage = accumulate(𝕗, storage, dims=ndims(𝕩.storage))
         # ... but this will produce an extra "row" in this dimension so we
         # produce a view which "cuts" that out with a view over this array:
         # TODO: Revisit that for performance!
@@ -402,7 +398,7 @@ module Runtime
   function bqnfillby(𝕘, 𝕗)
     function(𝕨, 𝕩)
       @debug "PRIMITIVE bqnfillby"
-      call(𝕗, 𝕨, 𝕩)
+      𝕗(𝕨, 𝕩)
     end
   end
 
@@ -570,16 +566,16 @@ function vm(src, code, consts, blocks, bodies, toks)
       elseif instr == 0x10 # FN1C
         @debug "BYTECODE 10 FN1C"
         s, x = pop!(stack), pop!(stack)
-        push!(stack, call(s, none, x))
+        push!(stack, s(none, x))
       elseif instr == 0x11 # FN2C
         @debug "BYTECODE 11 FN2C"
         w, s, x = pop!(stack), pop!(stack), pop!(stack)
-        push!(stack, call(s, w, x))
+        push!(stack, s(w, x))
       elseif instr == 0x12 # FN1O
         @debug "BYTECODE 12 FN1O"
         s, x = pop!(stack), pop!(stack)
         if x !== none
-          push!(stack, call(s, none, x))
+          push!(stack, s(none, x))
         else
           push!(stack, none)
         end
@@ -587,7 +583,7 @@ function vm(src, code, consts, blocks, bodies, toks)
         w, s, x = pop!(stack), pop!(stack), pop!(stack)
         @debug "BYTECODE 13 FN20"
         if x !== none
-          push!(stack, call(s, w, x))
+          push!(stack, s(w, x))
         else
           push!(stack, none)
         end
@@ -606,11 +602,11 @@ function vm(src, code, consts, blocks, bodies, toks)
       elseif instr == 0x1A # MD1C
         @debug "BYTECODE 1A MD1C"
         f, r = pop!(stack), pop!(stack)
-        push!(stack, call(r, nothing, f))
+        push!(stack, r(nothing, f))
       elseif instr == 0x1B # MD2C
         @debug "BYTECODE 1B MD2C"
         f, r, g = pop!(stack), pop!(stack), pop!(stack)
-        push!(stack, call(r, g, f))
+        push!(stack, r(g, f))
       elseif instr == 0x20 # VARO
         code_idx += 1
         d = code[code_idx + 1]
@@ -657,13 +653,13 @@ function vm(src, code, consts, blocks, bodies, toks)
       elseif instr == 0x32 # SETM
         ref, 𝕗, 𝕩 = pop!(stack), pop!(stack), pop!(stack)
         @debug "BYTECODE 32 SETM"
-        value = call(𝕗, getv(ref), 𝕩)
+        value = 𝕗(getv(ref), 𝕩)
         setu!(ref, value)
         push!(stack, value)
       elseif instr == 0x33 # SETC
         ref, 𝕗 = pop!(stack), pop!(stack)
         @debug "BYTECODE 33 SETC"
-        value = call(𝕗, none, getv(ref))
+        value = 𝕗(none, getv(ref))
         setu!(ref, value)
         push!(stack, value)
       else
