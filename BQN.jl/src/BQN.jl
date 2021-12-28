@@ -37,6 +37,9 @@ end
 
 struct Arr
   storage::Array{Any}
+  function Arr(n::Float64)
+    Arr(Int(n))
+  end
   function Arr(n::Int64)
     𝕩 = new(Vector{Any}())
     sizehint!(𝕩.storage, n)
@@ -108,7 +111,10 @@ function setu!(ref::RefNot, value::Any)
 end
 
 struct F
-  𝕗::Function
+  𝕤::Function
+  𝕘::Union{Any,Nothing}
+  𝕣::Union{Any,Nothing}
+  𝕗::Union{Any,Nothing}
 end
 
 Base.show(io::IO, f::F) = show(io, "<BQN function>")
@@ -132,15 +138,12 @@ end
 
 struct M1
   run::Function
-  𝕗::Any
 end
 
 Base.show(io::IO, f::M1) = show(io, "<BQN 1-modifier>")
 
 struct M2
   run::Function
-  𝕘::Any
-  𝕗::Any
 end
 
 Base.show(io::IO, f::M2) = show(io, "<BQN 2-modifier>")
@@ -151,7 +154,7 @@ Base.show(io::IO, f::M2) = show(io, "<BQN 2-modifier>")
 (𝕤::Char)(𝕨, 𝕩) = 𝕤
 (𝕤::Bool)(𝕨, 𝕩) = 𝕤
 (𝕤::String)(𝕨, 𝕩) = 𝕤
-(𝕤::F)(𝕨, 𝕩) = 𝕤.𝕗(𝕨, 𝕩)
+(𝕤::F)(𝕨, 𝕩) = 𝕤.𝕤(𝕨, 𝕩)
 (𝕤::TR2D)(𝕨, 𝕩) = 𝕤.h(none, 𝕤.𝕘(𝕨, 𝕩))
 function (𝕤::TR3D)(𝕨, 𝕩)
   𝕩´ = 𝕤.𝕗(𝕨, 𝕩)
@@ -163,8 +166,8 @@ function (𝕤::TR3O)(𝕨, 𝕩)
   𝕨´ = 𝕤.𝕘 != none ? 𝕤.𝕘(𝕨, 𝕩) : none
   𝕤.h(𝕨´, 𝕩´)
 end
-(𝕤::M1)(𝕨, 𝕩) = 𝕤.run(𝕤, 𝕨, 𝕩, nothing, 𝕤.𝕗)
-(𝕤::M2)(𝕨, 𝕩) = 𝕤.run(𝕤, 𝕨, 𝕩, 𝕤.𝕘, 𝕤.𝕗)
+(𝕤::M1)(𝕨, 𝕩) = 𝕤.run(𝕨, 𝕩)
+(𝕤::M2)(𝕨, 𝕩) = 𝕤.run(𝕨, 𝕩)
 
 module Runtime
   using Debugger
@@ -330,17 +333,22 @@ module Runtime
     end
   end
 
-  bqntype(𝕨::None, 𝕩::Arr) = 0
-  bqntype(𝕨::None, 𝕩::String) = 0
-  bqntype(𝕨::None, 𝕩::Number) = 1
-  bqntype(𝕨::None, 𝕩::Char) = 2
-  bqntype(𝕨::None, 𝕩::Function) = 3
-  bqntype(𝕨::None, 𝕩::TR2D) = 3
-  bqntype(𝕨::None, 𝕩::TR3D) = 3
-  bqntype(𝕨::None, 𝕩::TR3O) = 3
-  bqntype(𝕨::None, 𝕩::F) = 3
-  bqntype(𝕨::None, 𝕩::M1) = 4
-  bqntype(𝕨::None, 𝕩::M2) = 5
+  function bqntype(𝕨::None, 𝕩)
+    type = bqntype′(𝕨, 𝕩)
+    # @info "bqntype" 𝕩 type
+    type
+  end
+  bqntype′(𝕨::None, 𝕩::Arr) = 0
+  bqntype′(𝕨::None, 𝕩::String) = 0
+  bqntype′(𝕨::None, 𝕩::Number) = 1
+  bqntype′(𝕨::None, 𝕩::Char) = 2
+  bqntype′(𝕨::None, 𝕩::Function) = 3
+  bqntype′(𝕨::None, 𝕩::TR2D) = 3
+  bqntype′(𝕨::None, 𝕩::TR3D) = 3
+  bqntype′(𝕨::None, 𝕩::TR3O) = 3
+  bqntype′(𝕨::None, 𝕩::F) = 3
+  bqntype′(𝕨::None, 𝕩::M1) = 4
+  bqntype′(𝕨::None, 𝕩::M2) = 5
 
   bqnfill(𝕨::None, 𝕩::String) = ' '
   bqnfill(𝕨::None, 𝕩::Arr) = 0
@@ -504,22 +512,40 @@ function vm(src, code, consts, blocks, bodies, toks)
     if typ == 0 && imm == 1 # immediate
       run(nothing, nothing, nothing, nothing, nothing)
     elseif typ == 0 && imm == 0 # function
-      𝕤 = F(function(𝕨, 𝕩) run(𝕤, 𝕨, 𝕩, nothing, nothing) end)
+      𝕤 = F(
+            function(𝕨, 𝕩) run(𝕤, 𝕨, 𝕩, nothing, nothing) end,
+            nothing,
+            nothing,
+            nothing)
       𝕤
     elseif typ == 1 && imm == 1 # mod1 immediate
-      M1(run, nothing)
+      # @info "mod1 immediate"
+      𝕣 = M1(function(𝕨, 𝕩) run(𝕣, 𝕨, 𝕩, nothing, nothing) end)
+      𝕣
     elseif typ == 2 && imm == 1 # mod2 immediate
-      M2(run, nothing, nothing)
+      𝕣 = M2(function(𝕨, 𝕩) run(𝕣, 𝕨, 𝕩, nothing, nothing) end)
+      𝕣
     elseif typ == 1 && imm == 0 # mod1 deferred
-      function(𝕘, 𝕗)
-        𝕤 = F(function(𝕨, 𝕩) run(𝕤, 𝕨, 𝕩, nothing, 𝕗) end)
+      # @info "mod1 deferred"
+      𝕣 = M1(function(𝕘, 𝕗)
+        𝕤 = F(
+              function(𝕨, 𝕩) run(𝕤, 𝕨, 𝕩, nothing, 𝕗) end,
+              nothing,
+              𝕣,
+              𝕗)
         𝕤
-      end
+      end)
+      𝕣
     elseif typ == 2 && imm == 0 # mod2 deferred
-      function(𝕘, 𝕗)
-        𝕤 = F(function(𝕨, 𝕩) run(𝕤, 𝕨, 𝕩, 𝕘, 𝕗) end)
+      𝕣 = M2(function(𝕘, 𝕗)
+        𝕤 = F(
+              function(𝕨, 𝕩) run(𝕤, 𝕨, 𝕩, 𝕘, 𝕗) end,
+              𝕘,
+              𝕣,
+              𝕗)
         𝕤
-      end
+      end)
+      𝕣
     end
   end
 
@@ -551,7 +577,7 @@ function vm(src, code, consts, blocks, bodies, toks)
         @debug "BYTECODE 0B ARRO N=$(n)"
         v = Arr(n)
         for i in 1:n
-          push!(v.storage, popat!(stack, length(stack) - n + i))
+          push!(v.storage, popat!(stack, Int(length(stack) - n + i)))
         end
         push!(stack, v)
       elseif instr == 0x0C # ARRM
@@ -560,7 +586,7 @@ function vm(src, code, consts, blocks, bodies, toks)
         n = code[code_idx + 1]
         v = RefList(n)
         for i in 1:n
-          push!(v.vec, popat!(stack, length(stack) - n + i))
+          push!(v.vec, popat!(stack, Int(length(stack) - n + i)))
         end
         push!(stack, v)
       elseif instr == 0x10 # FN1C
@@ -1350,6 +1376,62 @@ function test_prim_6(only=nothing)
   run_testsuite(cases, only=only, title="Prim, Layer 6")
 end
 
+function test_under_1(only=nothing)
+  cases = [
+           # Invertible
+           (1, """ (⊑≡⊑⌾⊢) ⟨↕3,2,<"abc"⟩ """),
+           (1, """ 3 (+≡+⌾⊣) 4 """),
+           # (1, """ (¯2⊸↓ ≡ 2⊸↓⌾⌽) ↕6 """),
+           (1, """ (1⊸↓⌾⍉ ≡ 1⊸↓˘) ↕3‿3 """),
+           (1, """ 7(⥊⌾(<˘)≡·<˘⁼⥊⟜(<˘))3‿3⥊↕9 """),
+           (1, """ "abcd" (⊣≡»⌾≍) ↕4 """),
+           # (1, """ ! % ⍉⌾≍ "abc" """),
+           # (1, """ (⌽∘|⊸/4‿¯3) ≡ ↕∘≠⊸-⌾(3⊸⌽)↕7 """),
+
+           # Structural
+           # Monad
+           # (1, """ "bbcd" ≡ 1⊸+⌾⊑ "abcd" """),
+           # (1, """ (<∘- ≡ -⌾⊑) 4 """),
+           # (1, """ (⌽⌾⊏ ≡ ⌽⊸≍˝) "abc"≍"def" """),
+           # (1, """ ! % -⌾⊏ 4 """),
+           # (1, """ 1 ≡ "cd"‿"ab"⊸⊐⌾< "ab" """),
+           # (1, """ (0‿1+⌜0‿4‿2) ≡ ⍋∘⍋⌾⥊ "apl"≍"bqn" """),
+           # (1, """ 2 (⌽⌾⥊ ≡ 12|+) ⥊⟜(↕×´)6‿2 """),
+           # (1, """ ↕∘≠⊸+{𝔽≡𝔽¨⌾↑} "abcde" """),
+           # (1, """ 2⊸+{𝔽≡𝔽¨⌾↓} "abcde" """),
+           # Dyad
+           # (1, """ ! % ↕∘≠⊸+⌾(10⊸⥊)↕6 """),
+           # (1, """ (⌽⍒⌊2÷˜↕7) ≡ ⌽˘⌾(⌊‿2⥊⊢)↕7 """),
+           # (1, """ ¯1‿0‿1‿3 ≡ -⟜(+´÷≠)⌾(3⊸↑)↕4 """),
+           # (1, """ "adcb" ≡ ⌽⌾(1⊸↓)"abcd" """),
+           # (1, """ 5‿6‿3‿0 ≡ (5‿3‿1⌾(0‿0⊸⍉)4‿3⥊0) +´∘×⎉1‿∞ 1+↕3 """),
+           # (1, """ "AbcD" ≡ ('A'-'a')⊸+⌾(1‿0‿0‿1⊸/)"abcd" """),
+           # (1, """ "AbcD" ≡ "ABCD"⊣⌾(1‿0‿0‿1⊸/)"abcd" """),
+           # (1, """ ! % ↕∘≠⊸+⌾(2⊸/)↕5 """),
+           # (1, """ (1⊸⌽ ≡ 2⊸⌽⌾(2⊸/)) ↕5 """),
+           # (1, """ "bdca" ≡ 1⊸⌽⌾(1‿3‿0⊸⊏)"abcd" """),
+           # (1, """ ! % 1⊸⌽⌾(1‿3‿3‿0⊸⊏)"abcd" """),
+           # (1, """ ((¯1⋆2∧⌜○(⌽0=↕)3)⊸× ≡ -⌾(1‿2⊑⊢))↕2‿3 """),
+           # (1, """ ((0‿3≍1‿2)⊸+ ≡ ⟨1,2‿3⟩⊸+⌾(⟨1‿0,⟨1‿1,0‿1⟩⟩⊸⊑))↕2‿2 """),
+           # Compound
+           # (1, """ (1+↕3) ≡ 1⊸↓⌾(@⊢·⊑<)↕4 """),
+           # (1, """ "210abc" ≡ ⌽⌾((2÷˜≠)⊸↑)"012abc" """),
+           # (1, """ "bac"‿'d' ≡ ⌽⌾(2↑⊑)"abc"‿'d' """),
+           # (1, """ (⌽¨⌾(<2‿3⊸⊏) ≡ ⌽⌾(2‿3⊸⊏)) "abcdef" """),
+           # (1, """ "bdca" ≡ 1⊸⌽⌾(1‿3‿0˙⊏⊢)"abcd" """),
+           # Fills
+           # (1, """ ! % ⌽⌾(1↓4↑⊢)"abc" """),
+
+           # Computational
+           # (1, """ 3 % 1⊸+⌾-4 """),
+           # (1, """ 20 % ⌊0.5+ 4+⌾(⋆⁼)5 """),
+           # (1, """ 2 % ⊢⌾2 3 """),
+           # (1, """ -2 % ⊢⌾(2∘-) 3 """),
+           # (1, """ ∘‿+ ≡ ⊢⌾∘‿+ 1 """),
+          ]
+  run_testsuite(cases, only=only, title="Under 1")
+end
+
 function test_all()
   # pointless after we've tried to load the runtime but let's do it anyway
   test_bytecode()
@@ -1364,22 +1446,28 @@ function test_all()
 end
 
 function provide_decompose(𝕨, 𝕩)
-  if     isa(𝕩, F);         Arr([1, 𝕩])
-  elseif isa(𝕩, TR2D);      Arr([2, 𝕩.𝕘, 𝕩.h])
-  elseif isa(𝕩, TR3D);      Arr([2, 𝕩.𝕗, 𝕩.𝕘, 𝕩.h])
-  elseif isa(𝕩, TR3O);      Arr([2, 𝕩.𝕗, 𝕩.𝕘, 𝕩.h])
-  elseif isa(𝕩, M1);        Arr([4, 𝕩.𝕗, 𝕩])
-  elseif isa(𝕩, M2);        Arr([5, 𝕩.𝕗, 𝕩, 𝕩.𝕘])
-  elseif 𝕩 in _provide_set; Arr([0, 𝕩])
-  else                      Arr([-1, 𝕩])
-  end
+  kind =
+    if     𝕩 in _runtime;     Arr([0, 𝕩])
+    elseif isa(𝕩, F) && 𝕩.𝕘 !== nothing; Arr([5, 𝕩.𝕗, 𝕩.𝕣, 𝕩.𝕘])
+    elseif isa(𝕩, F) && 𝕩.𝕗 !== nothing; Arr([4, 𝕩.𝕗, 𝕩.𝕣])
+    elseif isa(𝕩, F);                    Arr([1, 𝕩])
+    elseif isa(𝕩, TR2D);      Arr([2, 𝕩.𝕘, 𝕩.h])
+    elseif isa(𝕩, TR3D);      Arr([2, 𝕩.𝕗, 𝕩.𝕘, 𝕩.h])
+    elseif isa(𝕩, TR3O);      Arr([2, 𝕩.𝕗, 𝕩.𝕘, 𝕩.h])
+    elseif isa(𝕩, M1);        Arr([4, 𝕩.𝕗, 𝕩])
+    elseif isa(𝕩, M2);        Arr([5, 𝕩.𝕗, 𝕩, 𝕩.𝕘])
+    else                      Arr([-1, 𝕩])
+    end
+  # @info "decompose" 𝕩 kind
+  kind
 end
 
 function provide_prim_ind(𝕨, 𝕩)
-  for (idx, 𝕗) in enumerate(_provide);
-    if 𝕗 === 𝕩; return idx; end
+  # @info "prim_ind" 𝕨 𝕩
+  for (idx, 𝕗) in enumerate(_runtime);
+    if 𝕗 === 𝕩; return (idx - 1); end
   end
-  return length(_provide)
+  return length(_runtime)
 end
 
 _provide = [
@@ -1406,16 +1494,20 @@ _provide = [
   Runtime.bqnfillby,
   Runtime.bqnvalences,
   Runtime.bqncatch,
-  provide_decompose,
-  provide_prim_ind,
+  # provide_decompose,
+  # provide_prim_ind,
 ]
-_provide_set = Set(𝕗 for 𝕗 in _provide)
 provide(n::Int64) = _provide[n + 1]
 
 # _runtime_0 = bqneval("r0")
 # runtime_0(n::Int64) = _runtime_0[n + 1]
 
 _runtime, set_prims, set_inv = bqneval("r")
+_runtime_set = Set(𝕗 for 𝕗 in _runtime)
 runtime(n::Int64) = _runtime[n + 1]
+
+set_prims(none, Arr([provide_decompose, provide_prim_ind]))
+
+c = bqneval("c")
 
 end
