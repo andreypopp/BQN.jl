@@ -265,28 +265,14 @@ module Runtime
     function(𝕨, 𝕩)
       # @info "PRIMITIVE bqntable" 𝕨 𝕩
       if 𝕨 === none
-        if !isa(𝕩, Arr); 𝕩 = collect(𝕩) end
-        len𝕩, size𝕩 = length(𝕩), size(𝕩)
-        storage = []
-        sizehint!(storage, len𝕩)
-        for i in 1:len𝕩
-          push!(storage, 𝕗(none, 𝕩[i]))
-        end
-        Arr(reshape(storage, size𝕩))
+        𝕩 = if !isa(𝕩, Arr); collect(𝕩) else 𝕩.storage end
+        Arr([𝕗(none, x) for x in 𝕩])
       else
-        if !isa(𝕨, Arr); 𝕨 = collect(𝕨) end
-        if !isa(𝕩, Arr); 𝕩 = collect(𝕩) end
-        sizeres = (size(𝕩)..., size(𝕨)...)
-        storage = []
-        sizehint!(storage, sizeres != () ? *(sizeres...) : 1)
-        for i in 1:length(𝕨)
-          for j in 1:length(𝕩)
-            v = 𝕗(𝕨[i], 𝕩[j])
-            push!(storage, v)
-          end
-        end
-        storage = reshape(storage, sizeres)
-        Arr(storage)
+        𝕨 = if !isa(𝕨, Arr); collect(𝕨) else 𝕨.storage end
+        𝕩 = if !isa(𝕩, Arr); collect(𝕩) else 𝕩.storage end
+        rsize = (size(𝕩)..., size(𝕨)...)
+        r = [𝕗(w, x) for w in 𝕨 for x in 𝕩]
+        Arr(reshape(r, rsize))
       end
     end
   end
@@ -416,50 +402,6 @@ end
 
 str(s::String) = s
 
-module Bytecode
-  known = Dict(
-               0x00 => ("PUSH", ["I"]),
-               0x01 => ("DFND", ["I"]),
-               0x06 => ("POPS", []),
-               0x07 => ("RETN", []),
-               0x0B => ("ARRO", ["N"]),
-               0x0C => ("ARRM", ["N"]),
-               0x10 => ("FN1C", []),
-               0x11 => ("FN2C", []),
-               0x12 => ("FN1O", []),
-               0x13 => ("FN2O", []),
-               0x14 => ("TR2D", []),
-               0x15 => ("TR3D", []),
-               0x17 => ("TR3O", []),
-               0x1A => ("MD1C", []),
-               0x1B => ("MD2C", []),
-               0x20 => ("VARO", ["D", "I"]),
-               0x21 => ("VARM", ["D", "I"]),
-               0x22 => ("VARU", ["D", "I"]),
-               0x2C => ("NOTM", []),
-               0x30 => ("SETN", []),
-               0x31 => ("SETU", []),
-               0x32 => ("SETM", []),
-               0x33 => ("SETC", []),
-  )
-
-  function decode(bytecode; pos=0, len=10)
-    result = []
-    while length(result) < len
-      name, argnames = get(known, bytecode[pos + 1], (nothing, nothing))
-      if name === nothing; break end
-      args = []
-      for arg in argnames
-        pos += 1
-        push!(args, (arg, bytecode[pos + 1]))
-      end
-      push!(result, (name, args))
-      pos += 1
-    end
-    return result
-  end
-end
-
 function vm(src, code, consts, blocks, bodies, toks)
   cbodies = []
   for (idx, body) in enumerate(bodies)
@@ -538,7 +480,7 @@ function vm(src, code, consts, blocks, bodies, toks)
     end
   end
 
-  function run_body(code_idx, env)
+  function run_body(code_idx::Int64, env::Env)
     stack = []
     s = src
     x = toks
@@ -1497,8 +1439,6 @@ _provide = [
   Runtime.bqnfillby,
   Runtime.bqnvalences,
   Runtime.bqncatch,
-  # provide_decompose,
-  # provide_prim_ind,
 ]
 provide(n::Int64) = _provide[n + 1]
 
