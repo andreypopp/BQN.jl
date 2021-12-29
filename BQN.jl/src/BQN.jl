@@ -655,14 +655,14 @@ function vm(src, code, consts, blocks, bodies)
   run_block(blocks[1], Env(nothing, []))
 end
 
-function bqncompile(code)
+function bqncompile0(code)
     jlsrc = read(`./BQN/src/cjs.bqn $(code)`, String)
     jlcode = eval(Meta.parse(jlsrc))
     return jlcode
 end
 
-function bqneval(code)
-    jlcode = bqncompile(code)
+function bqneval0(code)
+    jlcode = bqncompile0(code)
     boot = eval(jlcode)
     vm(code, boot...)
 end
@@ -694,11 +694,16 @@ _provide = [
 ]
 provide(n::Int64) = _provide[n + 1]
 
-_runtime, set_prims, set_inv = bqneval("r")
-_runtime_set = Set(𝕗 for 𝕗 in _runtime)
+module R
+import ..provide, ..str
+include("./r.jl")
+end
+
+_runtime, set_prims, set_inv = vm("<none>", R.value...)
+
 runtime(n::Int64) = _runtime[n + 1]
 
-function provide_decompose(𝕨, 𝕩)
+function decompose(𝕨, 𝕩)
   kind =
     if     𝕩 in _runtime;     Arr([0, 𝕩])
     elseif isa(𝕩, F) && 𝕩.𝕘 !== nothing; Arr([5, 𝕩.𝕗, 𝕩.𝕣, 𝕩.𝕘])
@@ -715,7 +720,7 @@ function provide_decompose(𝕨, 𝕩)
   kind
 end
 
-function provide_prim_ind(𝕨, 𝕩)
+function prim_ind(𝕨, 𝕩)
   # @info "prim_ind" 𝕨 𝕩
   for (idx, 𝕗) in enumerate(_runtime);
     if 𝕗 === 𝕩; return (idx - 1); end
@@ -723,22 +728,31 @@ function provide_prim_ind(𝕨, 𝕩)
   return length(_runtime)
 end
 
-set_prims(none, Arr([provide_decompose, provide_prim_ind]))
+set_prims(none, Arr([decompose, prim_ind]))
 
-c = bqneval("c")
+module C
+import ..runtime, ..str
+include("./c.jl")
+end
 
-function bqneval_selfhosted(src)
-  code, consts, blocks, bodies, toks, names = c(_runtime, src)
+c = vm("<none>", C.value...)
+
+function bqncompile(src)
+  c(_runtime, src)
+end
+
+function bqneval(src)
+  code, consts, blocks, bodies, toks, names = bqncompile(src)
   vm(src, code, consts, blocks, bodies)
+end
+
+module Tests0
+import ..BQNError, ..bqneval0 as bqneval
+include("./test/test.jl")
 end
 
 module Tests
 import ..BQNError, ..bqneval
-include("./test/test.jl")
-end
-
-module TestsSelfhosted
-import ..BQNError, ..bqneval_selfhosted as bqneval
 include("./test/test.jl")
 end
 
