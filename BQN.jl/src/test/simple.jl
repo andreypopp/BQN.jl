@@ -21,5 +21,5 @@ function test_simple(only=nothing)
           (-0.5 , "{{-3}+√{3×3}-4×2×1}÷2×2"),
           (1    , "{a←1⋄{a←2}⋄a}"),
     ]
-  run_testsuite(cases, only=only)
+  @testset "simple" begin run_testsuite(cases, only=only) end
 end

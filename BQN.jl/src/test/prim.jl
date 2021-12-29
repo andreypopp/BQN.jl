@@ -68,7 +68,7 @@ function test_prim_0(only=nothing)
            (BQNError, """!0"""),
            (BQNError, """"error"!"abc" """),
   ]
-  run_testsuite(cases, only=only)
+  @testset "layer 0" begin run_testsuite(cases, only=only) end
 end
 
 function test_prim_1(only=nothing)
@@ -159,7 +159,7 @@ function test_prim_1(only=nothing)
            (BQNError, "-´<'a'"),
            (BQNError, """ ×´3‿1⥊"abc" """),
   ]
-  run_testsuite(cases, only=only)
+  @testset "layer 1" begin run_testsuite(cases, only=only) end
 end
 
 function test_prim_2(only=nothing)
@@ -186,7 +186,7 @@ function test_prim_2(only=nothing)
            (1, """ (=¨⟜(⥊⟜(↕×´)3‿4)≡(↕4)=⌜˜4|⊢)1‿6‿8 """),
            (1, """ 0‿1≡+‿-=⊑⟨-⟩ """),
           ]
-  run_testsuite(cases, only=only)
+  @testset "layer 2" begin run_testsuite(cases, only=only) end
 end
 
 function test_prim_3(only=nothing)
@@ -261,7 +261,7 @@ function test_prim_3(only=nothing)
            (1, """ 2≡≡⟨5,⟨'c',+,2⟩⟩ """),
            (1, """ 0≡≡⊑⟨-⟩ """),
   ]
-  run_testsuite(cases, only=only)
+  @testset "layer 3" begin run_testsuite(cases, only=only) end
 end
 
 function test_prim_4(only=nothing)
@@ -323,7 +323,7 @@ function test_prim_4(only=nothing)
            (BQNError, """ 3‿4+`4+⌜○↕3 """),
            (1, """ (2⋆1‿2‿6×⌜0‿2)≡3‿4⋆`3+⌜○↕2 """),
   ]
-  run_testsuite(cases, only=only)
+  @testset "layer 4" begin run_testsuite(cases, only=only) end
 end
 
 function test_prim_5(only=nothing)
@@ -436,7 +436,7 @@ function test_prim_5(only=nothing)
            (1, """ ⟨⟩(/≡⊢)≍"ab" """),
            (1, """ ⟨2,<3⟩(/≡⥊˜¨⟜≢/⊢)'a'+4‿2⥊↕8 """),
   ]
-  run_testsuite(cases, only=only)
+  @testset "layer 5" begin run_testsuite(cases, only=only) end
 end
 
 function test_prim_6(only=nothing)
@@ -573,5 +573,17 @@ function test_prim_6(only=nothing)
            (1, """ (<1)≡(↕2‿3)⍋1+↕3 """),
            (1, """ (<0)≡"abc"⥊⊸⍒○<≍"acc" """),
   ]
-  run_testsuite(cases, only=only)
+  @testset "layer 6" begin run_testsuite(cases, only=only) end
+end
+
+function test_prim()
+  @testset "prim" verbose=true begin
+    test_prim_0()
+    test_prim_1()
+    test_prim_2()
+    test_prim_3()
+    test_prim_4()
+    test_prim_5()
+    test_prim_6()
+  end
 end

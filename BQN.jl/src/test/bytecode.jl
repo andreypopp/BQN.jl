@@ -41,5 +41,5 @@ function test_bytecode(only=nothing)
     (1, "1{𝕨}{𝔽{𝕩𝔽𝕨}𝔾𝔽}{𝕩}0"),    # 0≠1 via Church booleans
     (2, "0‿(0‿{𝕩}){{a‿b←𝕩⋄t←𝕤⋄{𝕤⋄T↩{𝕤⋄{a‿b←𝕩⋄a}}}{B𝕗}0⋄(T b){a‿b←𝕩⋄𝔽b}}𝕗} 0‿(1‿(2‿(3‿(4‿{𝕩}))))"),
   ]
-  run_testsuite(cases, only=only)
+  @testset "bytecode" begin run_testsuite(cases, only=only) end
 end

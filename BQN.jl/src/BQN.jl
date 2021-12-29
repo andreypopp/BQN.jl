@@ -214,7 +214,7 @@ module Runtime
   bqneq(𝕨::None, 𝕩) = 0
   bqneq(𝕨, 𝕩) = Int(𝕨 == 𝕩)
 
-  bqnlte(𝕨, 𝕩) = 𝕨 <= 𝕩
+  bqnlte(𝕨, 𝕩) = Int(𝕨 <= 𝕩)
   bqnlte(𝕨::Number, 𝕩::Char) = 1
   bqnlte(𝕨::Char, 𝕩::Number) = 0
 
@@ -265,17 +265,22 @@ module Runtime
     # TODO: need to get rid of calls to collect() here, instead need to iterate
     # over graphemes for Strings
     function(𝕨, 𝕩)
-      # @info "PRIMITIVE bqntable" 𝕨 𝕩
-      if 𝕨 === none
-        𝕩 = if !isa(𝕩, Arr); collect(𝕩) else 𝕩.storage end
-        Arr([𝕗(none, x) for x in 𝕩])
-      else
-        𝕨 = if !isa(𝕨, Arr); collect(𝕨) else 𝕨.storage end
-        𝕩 = if !isa(𝕩, Arr); collect(𝕩) else 𝕩.storage end
-        rsize = (size(𝕩)..., size(𝕨)...)
-        r = [𝕗(w, x) for w in 𝕨 for x in 𝕩]
-        Arr(reshape(r, rsize))
+      res =
+        if 𝕨 === none
+          𝕩 = if !isa(𝕩, Arr); collect(𝕩) else 𝕩.storage end
+          Arr([𝕗(none, x) for x in 𝕩])
+        else
+          𝕨 = if !isa(𝕨, Arr); collect(𝕨) else 𝕨.storage end
+          𝕩 = if !isa(𝕩, Arr); collect(𝕩) else 𝕩.storage end
+          rsize = (size(𝕩)..., size(𝕨)...)
+          r = [𝕗(w, x) for w in 𝕨 for x in 𝕩]
+          Arr(reshape(r, rsize))
+        end
+        if length(res) == 4 && res[1] == 0 && res[2] == 0 && isa(res[3], Arr) && res[3].storage == [] && res[4].storage == []
+        # @info "PRIMITIVE bqntable" 𝕨 𝕩 res
+        # print(𝕗)
       end
+      res
     end
   end
 
@@ -350,7 +355,6 @@ module Runtime
     end
     minl = max(max𝕩, 𝕨 !== none ? (𝕨 - 1) : -1)
     storage = [get(lengths, x, 0) for x in 0:minl]
-    # @info "bqngrouplen" minl storage
     Arr(storage)
   end
 
@@ -363,6 +367,7 @@ module Runtime
       push!(indices[Int(x) + 1], idx - 1)
     end
     storage = vcat(indices...)
+    # @info "bqngroupord" 𝕩 storage
     Arr(storage)
   end
 
@@ -404,7 +409,7 @@ end
 
 str(s::String) = s
 
-function vm(src, code, consts, blocks, bodies, toks)
+function vm(src, code, consts, blocks, bodies)
   cbodies = []
   for (idx, body) in enumerate(bodies)
     code_idx, num_vars = body
@@ -430,7 +435,7 @@ function vm(src, code, consts, blocks, bodies, toks)
     function run(𝕤, 𝕨, 𝕩, 𝕘, 𝕗)
       if isa(body_idx, Int)
         cbodies[body_idx + 1](env, 𝕤, 𝕨, 𝕩, 𝕘, 𝕗)
-      elseif isa(body_idx, Vector)
+      elseif isa(body_idx, Array) || isa(body_idx, Arr)
         ret = nothing
         for body in body_idx
           for idx in body
@@ -484,14 +489,12 @@ function vm(src, code, consts, blocks, bodies, toks)
 
   function run_body(code_idx::Int64, env::Env)
     stack = []
-    s = src
-    x = toks
     while true
       instr = code[code_idx + 1]
       if instr == 0x00 # PUSH
         code_idx += 1
         v = consts[code[code_idx + 1] + 1]
-        # @debug "BYTECODE 00 PUSH"
+        # @info "BYTECODE 00 PUSH" v
         push!(stack, v)
       elseif instr == 0x01 # DFND
         # @debug "BYTECODE 01 DFND"
@@ -502,7 +505,7 @@ function vm(src, code, consts, blocks, bodies, toks)
         # @debug "BYTECODE 06 POPS"
         pop!(stack)
       elseif instr == 0x07 # RETN
-        # @debug "BYTECODE 07 RETN"
+        # @info "BYTECODE 07 RETN" stack
         return pop!(stack)
       elseif instr == 0x0B # ARRO
         code_idx += 1
@@ -538,18 +541,21 @@ function vm(src, code, consts, blocks, bodies, toks)
         end
         push!(stack, v)
       elseif instr == 0x10 # FN1C
-        # @debug "BYTECODE 10 FN1C"
+        # @info "BYTECODE 10 FN1C"
         s, x = pop!(stack), pop!(stack)
-        push!(stack, s(none, x))
+        v = s(none, x)
+        push!(stack, v)
       elseif instr == 0x11 # FN2C
-        # @debug "BYTECODE 11 FN2C"
         w, s, x = pop!(stack), pop!(stack), pop!(stack)
-        push!(stack, s(w, x))
+        v = s(w, x)
+        # @info "BYTECODE 11 FN2C" w s x v s.𝕤
+        push!(stack, v)
       elseif instr == 0x12 # FN1O
         # @debug "BYTECODE 12 FN1O"
         s, x = pop!(stack), pop!(stack)
         if x !== none
-          push!(stack, s(none, x))
+          v = s(none, x)
+          push!(stack, v)
         else
           push!(stack, none)
         end
@@ -557,7 +563,8 @@ function vm(src, code, consts, blocks, bodies, toks)
         w, s, x = pop!(stack), pop!(stack), pop!(stack)
         # @debug "BYTECODE 13 FN20"
         if x !== none
-          push!(stack, s(w, x))
+          v = s(w, x)
+          push!(stack, v)
         else
           push!(stack, none)
         end
@@ -589,7 +596,7 @@ function vm(src, code, consts, blocks, bodies, toks)
         cenv = env
         while d > 0; cenv = cenv.parent; d -= 1 end
         ref = cenv.vars[i + 1]
-        # @debug "BYTECODE 20 VARO D=$(d) I=$(i)"
+        # @info "BYTECODE 20 VARO D=$(d) I=$(i)" ref
         push!(stack, getv(ref))
       elseif instr == 0x21 # VARM
         code_idx += 1
@@ -611,6 +618,7 @@ function vm(src, code, consts, blocks, bodies, toks)
         ref = cenv.vars[i + 1]
         # @debug "BYTECODE 22 VARU D=$(d) I=$(i)"
         # TODO: need to clear the ref
+        # @info "BYTECODE 20 VARO D=$(d) I=$(i)" ref
         push!(stack, getv(ref))
       elseif instr == 0x2C # NOTM
         push!(stack, RefNot())
@@ -648,7 +656,7 @@ function vm(src, code, consts, blocks, bodies, toks)
 end
 
 function bqncompile(code)
-    jlsrc = read(`./BQN/src/cjs.bqn -i $(code)`, String)
+    jlsrc = read(`./BQN/src/cjs.bqn $(code)`, String)
     jlcode = eval(Meta.parse(jlsrc))
     return jlcode
 end
@@ -721,7 +729,7 @@ c = bqneval("c")
 
 function bqneval_selfhosted(src)
   code, consts, blocks, bodies, toks, names = c(_runtime, src)
-  vm(src, code, consts, blocks, bodies, toks)
+  vm(src, code, consts, blocks, bodies)
 end
 
 module Tests
