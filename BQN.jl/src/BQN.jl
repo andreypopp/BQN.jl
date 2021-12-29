@@ -19,7 +19,7 @@ struct RefList <: Var
   vec::Vector{Var}
   function RefList(n::Int64)
     v = new(Vector{Var}())
-    sizehint!(v.vec, n)
+    sizehint!(v.vec, Int(n))
     v
   end
 end
@@ -511,9 +511,10 @@ function vm(src, code, consts, blocks, bodies, toks)
         # try to "infer" the type
         # TODO: benchmark if it helps...
         T = if n > 0
-          T = typeof(stack[end])
+          len = length(stack)
+          T = typeof(stack[len])
           for i in 1:(n-1)
-            T′ = typeof(stack[end - i])
+            T′ = typeof(stack[Int(len - i)])
             if T != T′; T = Any; break end
           end
           T
@@ -522,7 +523,7 @@ function vm(src, code, consts, blocks, bodies, toks)
         end
         # alloc storage
         v = Arr(T[])
-        sizehint!(v.storage, n)
+        sizehint!(v.storage, Int(n))
         for i in 1:n
           push!(v.storage, popat!(stack, Int(length(stack) - n + i)))
         end
@@ -531,7 +532,7 @@ function vm(src, code, consts, blocks, bodies, toks)
         # @debug "BYTECODE 1C ARRM"
         code_idx += 1
         n = code[code_idx + 1]
-        v = RefList(n)
+        v = RefList(Int(n))
         for i in 1:n
           push!(v.vec, popat!(stack, Int(length(stack) - n + i)))
         end
