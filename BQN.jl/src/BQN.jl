@@ -35,19 +35,8 @@ struct Env
   vars::Vector{Var}
 end
 
-struct Arr
-  storage::Array{Any}
-  function Arr(n::Float64)
-    Arr(Int(n))
-  end
-  function Arr(n::Int64)
-    𝕩 = new(Vector{Any}())
-    sizehint!(𝕩.storage, n)
-    𝕩
-  end
-  function Arr(storage::Any)
-    new(storage)
-  end
+struct Arr{T}
+  storage::AbstractArray{T}
 end
 
 function Base.display(𝕩::Arr)
@@ -198,7 +187,7 @@ module Runtime
 
   function bqnvalences(𝕘, 𝕗)
     function (𝕨, 𝕩)
-      @debug "PRIMITIVE bqnvalences"
+      # @debug "PRIMITIVE bqnvalences"
       if 𝕨 === none
         𝕗(𝕨, 𝕩)
       else
@@ -209,7 +198,7 @@ module Runtime
 
   function bqncatch(𝕘, 𝕗)
     function (𝕨, 𝕩)
-      @debug "PRIMITIVE bqncatch"
+      # @debug "PRIMITIVE bqncatch"
       try
         𝕗(𝕨, 𝕩)
       catch e
@@ -274,7 +263,7 @@ module Runtime
     # TODO: need to get rid of calls to collect() here, instead need to iterate
     # over graphemes for Strings
     function(𝕨, 𝕩)
-      @debug "PRIMITIVE bqntable"
+      # @debug "PRIMITIVE bqntable"
       if 𝕨 === none
         if !isa(𝕩, Arr); 𝕩 = collect(𝕩) end
         len𝕩, size𝕩 = length(𝕩), size(𝕩)
@@ -312,7 +301,7 @@ module Runtime
                 Int(𝕨 == none ||
                     size(𝕨) == () && ndims(𝕩.storage) == 1 ||
                     size(𝕨)[1:1] == size(𝕩)[1:1]))
-      @debug "PRIMITIVE bqnscan"
+      # @debug "PRIMITIVE bqnscan"
       storage = if 𝕨 == none
         accumulate(𝕗, 𝕩.storage, dims=ndims(𝕩.storage))
       elseif size(𝕨) == ()
@@ -405,7 +394,7 @@ module Runtime
 
   function bqnfillby(𝕘, 𝕗)
     function(𝕨, 𝕩)
-      @debug "PRIMITIVE bqnfillby"
+      # @debug "PRIMITIVE bqnfillby"
       𝕗(𝕨, 𝕩)
     end
   end
@@ -476,8 +465,8 @@ function vm(src, code, consts, blocks, bodies, toks)
   for (idx, body) in enumerate(bodies)
     code_idx, num_vars = body
     push!(cbodies, function(parent, 𝕤, 𝕨, 𝕩, 𝕘, 𝕗)
-            @debug "BODY@$(idx-1) $(num_vars)"
-            vars = []
+            # @debug "BODY@$(idx-1) $(num_vars)"
+            vars = Ref[]
             for _ in 1:num_vars; push!(vars, Ref(nothing)) end
             if num_vars >= 1 vars[1].value = 𝕤 end
             if num_vars >= 2 vars[2].value = 𝕩 end
@@ -493,7 +482,7 @@ function vm(src, code, consts, blocks, bodies, toks)
 
   function run_block(block, env)
     typ, imm, body_idx = block
-    @debug "BLOCK type=$(typ) immediate=$(imm) body=$(body_idx)"
+    # @debug "BLOCK type=$(typ) immediate=$(imm) body=$(body_idx)"
     function run(𝕤, 𝕨, 𝕩, 𝕘, 𝕗)
       if isa(body_idx, Int)
         cbodies[body_idx + 1](env, 𝕤, 𝕨, 𝕩, 𝕘, 𝕗)
@@ -558,30 +547,31 @@ function vm(src, code, consts, blocks, bodies, toks)
       if instr == 0x00 # PUSH
         code_idx += 1
         v = consts[code[code_idx + 1] + 1]
-        @debug "BYTECODE 00 PUSH"
+        # @debug "BYTECODE 00 PUSH"
         push!(stack, v)
       elseif instr == 0x01 # DFND
-        @debug "BYTECODE 01 DFND"
+        # @debug "BYTECODE 01 DFND"
         code_idx += 1
         block = blocks[code[code_idx + 1] + 1]
         push!(stack, run_block(block, env))
       elseif instr == 0x06 # POPS
-        @debug "BYTECODE 06 POPS"
+        # @debug "BYTECODE 06 POPS"
         pop!(stack)
       elseif instr == 0x07 # RETN
-        @debug "BYTECODE 07 RETN"
+        # @debug "BYTECODE 07 RETN"
         return pop!(stack)
       elseif instr == 0x0B # ARRO
         code_idx += 1
         n = code[code_idx + 1]
-        @debug "BYTECODE 0B ARRO N=$(n)"
-        v = Arr(n)
+        # @debug "BYTECODE 0B ARRO N=$(n)"
+        v = Arr([])
+        sizehint!(v.storage, n)
         for i in 1:n
           push!(v.storage, popat!(stack, Int(length(stack) - n + i)))
         end
         push!(stack, v)
       elseif instr == 0x0C # ARRM
-        @debug "BYTECODE 1C ARRM"
+        # @debug "BYTECODE 1C ARRM"
         code_idx += 1
         n = code[code_idx + 1]
         v = RefList(n)
@@ -590,15 +580,15 @@ function vm(src, code, consts, blocks, bodies, toks)
         end
         push!(stack, v)
       elseif instr == 0x10 # FN1C
-        @debug "BYTECODE 10 FN1C"
+        # @debug "BYTECODE 10 FN1C"
         s, x = pop!(stack), pop!(stack)
         push!(stack, s(none, x))
       elseif instr == 0x11 # FN2C
-        @debug "BYTECODE 11 FN2C"
+        # @debug "BYTECODE 11 FN2C"
         w, s, x = pop!(stack), pop!(stack), pop!(stack)
         push!(stack, s(w, x))
       elseif instr == 0x12 # FN1O
-        @debug "BYTECODE 12 FN1O"
+        # @debug "BYTECODE 12 FN1O"
         s, x = pop!(stack), pop!(stack)
         if x !== none
           push!(stack, s(none, x))
@@ -607,30 +597,30 @@ function vm(src, code, consts, blocks, bodies, toks)
         end
       elseif instr == 0x13 # FN2O
         w, s, x = pop!(stack), pop!(stack), pop!(stack)
-        @debug "BYTECODE 13 FN20"
+        # @debug "BYTECODE 13 FN20"
         if x !== none
           push!(stack, s(w, x))
         else
           push!(stack, none)
         end
       elseif instr == 0x14 # TR2D
-        @debug "BYTECODE 14 TR2D"
+        # @debug "BYTECODE 14 TR2D"
         h, 𝕘 = pop!(stack), pop!(stack)
         push!(stack, TR2D(h, 𝕘))
       elseif instr == 0x15 # TR3D
-        @debug "BYTECODE 15 TR3D"
+        # @debug "BYTECODE 15 TR3D"
         𝕘, h, 𝕗 = pop!(stack), pop!(stack), pop!(stack)
         push!(stack, TR3D(h, 𝕘, 𝕗))
       elseif instr == 0x17 # TR3O
-        @debug "BYTECODE 17 TR3O"
+        # @debug "BYTECODE 17 TR3O"
         𝕘, h, 𝕗 = pop!(stack), pop!(stack), pop!(stack)
         push!(stack, TR3O(h, 𝕘, 𝕗))
       elseif instr == 0x1A # MD1C
-        @debug "BYTECODE 1A MD1C"
+        # @debug "BYTECODE 1A MD1C"
         f, r = pop!(stack), pop!(stack)
         push!(stack, r(nothing, f))
       elseif instr == 0x1B # MD2C
-        @debug "BYTECODE 1B MD2C"
+        # @debug "BYTECODE 1B MD2C"
         f, r, g = pop!(stack), pop!(stack), pop!(stack)
         push!(stack, r(g, f))
       elseif instr == 0x20 # VARO
@@ -641,14 +631,14 @@ function vm(src, code, consts, blocks, bodies, toks)
         cenv = env
         while d > 0; cenv = cenv.parent; d -= 1 end
         ref = cenv.vars[i + 1]
-        @debug "BYTECODE 20 VARO D=$(d) I=$(i)"
+        # @debug "BYTECODE 20 VARO D=$(d) I=$(i)"
         push!(stack, getv(ref))
       elseif instr == 0x21 # VARM
         code_idx += 1
         d = code[code_idx + 1]
         code_idx += 1
         i = code[code_idx + 1]
-        @debug "BYTECODE 21 VARM D=$(d) I=$(i)"
+        # @debug "BYTECODE 21 VARM D=$(d) I=$(i)"
         cenv = env
         while d > 0; cenv = cenv.parent; d -= 1 end
         ref = cenv.vars[i + 1]
@@ -661,30 +651,30 @@ function vm(src, code, consts, blocks, bodies, toks)
         cenv = env
         while d > 0; cenv = cenv.parent; d -= 1 end
         ref = cenv.vars[i + 1]
-        @debug "BYTECODE 22 VARU D=$(d) I=$(i)"
+        # @debug "BYTECODE 22 VARU D=$(d) I=$(i)"
         # TODO: need to clear the ref
         push!(stack, getv(ref))
       elseif instr == 0x2C # NOTM
         push!(stack, RefNot())
       elseif instr == 0x30 # SETN
         ref, value = pop!(stack), pop!(stack)
-        @debug "BYTECODE 30 SETN"
+        # @debug "BYTECODE 30 SETN"
         setn!(ref, value)
         push!(stack, value)
       elseif instr == 0x31 # SETU
         ref, value = pop!(stack), pop!(stack)
-        @debug "BYTECODE 31 SETU"
+        # @debug "BYTECODE 31 SETU"
         setu!(ref, value)
         push!(stack, value)
       elseif instr == 0x32 # SETM
         ref, 𝕗, 𝕩 = pop!(stack), pop!(stack), pop!(stack)
-        @debug "BYTECODE 32 SETM"
+        # @debug "BYTECODE 32 SETM"
         value = 𝕗(getv(ref), 𝕩)
         setu!(ref, value)
         push!(stack, value)
       elseif instr == 0x33 # SETC
         ref, 𝕗 = pop!(stack), pop!(stack)
-        @debug "BYTECODE 33 SETC"
+        # @debug "BYTECODE 33 SETC"
         value = 𝕗(none, getv(ref))
         setu!(ref, value)
         push!(stack, value)
