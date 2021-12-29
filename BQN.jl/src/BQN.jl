@@ -746,6 +746,10 @@ function bqneval(src)
   vm(src, code, consts, blocks, bodies)
 end
 
+_ = bqneval("1") # warm up
+
+export bqneval
+
 module Tests0
 import ..BQNError, ..bqneval0 as bqneval
 include("./test/test.jl")
@@ -754,6 +758,21 @@ end
 module Tests
 import ..BQNError, ..bqneval
 include("./test/test.jl")
+end
+
+module Repl
+using ReplMaker
+import ..bqneval
+
+function init()
+  initrepl(bqneval,
+           prompt_text="BQN) ",
+           prompt_color=:blue, 
+           startup_text=true,
+           start_key=')', 
+           mode_name="BQN")
+  nothing
+end
 end
 
 end
