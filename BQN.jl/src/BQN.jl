@@ -746,8 +746,6 @@ function bqneval(src)
   vm(src, code, consts, blocks, bodies)
 end
 
-_ = bqneval("1") # warm up
-
 export bqneval
 
 module Tests0
