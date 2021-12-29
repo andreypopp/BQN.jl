@@ -263,7 +263,7 @@ module Runtime
     # TODO: need to get rid of calls to collect() here, instead need to iterate
     # over graphemes for Strings
     function(𝕨, 𝕩)
-      # @debug "PRIMITIVE bqntable"
+      # @info "PRIMITIVE bqntable" 𝕨 𝕩
       if 𝕨 === none
         if !isa(𝕩, Arr); 𝕩 = collect(𝕩) end
         len𝕩, size𝕩 = length(𝕩), size(𝕩)
@@ -563,8 +563,21 @@ function vm(src, code, consts, blocks, bodies, toks)
       elseif instr == 0x0B # ARRO
         code_idx += 1
         n = code[code_idx + 1]
-        # @debug "BYTECODE 0B ARRO N=$(n)"
-        v = Arr([])
+        # @info "BYTECODE 0B ARRO N=$(n)"
+        # try to "infer" the type
+        # TODO: benchmark if it helps...
+        T = if n > 0
+          T = typeof(stack[end])
+          for i in 1:(n-1)
+            T′ = typeof(stack[end - i])
+            if T != T′; T = Any; break end
+          end
+          T
+        else
+          Any
+        end
+        # alloc storage
+        v = Arr(T[])
         sizehint!(v.storage, n)
         for i in 1:n
           push!(v.storage, popat!(stack, Int(length(stack) - n + i)))
