@@ -656,7 +656,7 @@ function vm(src, code, consts, blocks, bodies)
 end
 
 function bqncompile0(code)
-    jlsrc = read(`./BQN/src/cjs.bqn $(code)`, String)
+    jlsrc = read(`./cjl.bqn $(code)`, String)
     jlcode = eval(Meta.parse(jlsrc))
     return jlcode
 end
