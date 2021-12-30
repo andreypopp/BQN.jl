@@ -1,3 +1,8 @@
+init:
+	git submodule init
+	git submodule update
+	cd CBQN && make
+
 test:
 	julia -e 'using BQN; BQN.Tests.test_all()'
 
