@@ -35,6 +35,14 @@ struct Env
   vars::Vector{Var}
 end
 
+struct VM
+  src::String
+  code::Array{Int64}
+  consts::Array{Any}
+  blocks::Array{Any}
+  bodies::Array{Any}
+end
+
 function getv(ref::Ref)
   @assert ref.value !== nothing
   ref.value
@@ -75,7 +83,9 @@ function setu!(ref::RefNot, value::Any)
 end
 
 struct F
-  𝕤::Function
+  vm::VM
+  env::Env
+  block::Any
   𝕘::Union{Any,Nothing}
   𝕣::Union{Any,Nothing}
   𝕗::Union{Any,Nothing}
@@ -118,7 +128,9 @@ Base.show(io::IO, f::M2) = show(io, "<BQN 2-modifier>")
 (𝕤::Char)(𝕨, 𝕩) = 𝕤
 (𝕤::Bool)(𝕨, 𝕩) = 𝕤
 (𝕤::String)(𝕨, 𝕩) = 𝕤
-(𝕤::F)(𝕨, 𝕩) = 𝕤.𝕤(𝕨, 𝕩)
+(𝕤::F)(𝕨, 𝕩) = run_block_body(𝕤.vm, 𝕤.env, 𝕤.block, 𝕤, 𝕨, 𝕩, 𝕤.𝕘, 𝕤.𝕗)
+(𝕤::M1)(𝕨, 𝕩) = 𝕤.run(𝕨, 𝕩)
+(𝕤::M2)(𝕨, 𝕩) = 𝕤.run(𝕨, 𝕩)
 (𝕤::TR2D)(𝕨, 𝕩) = 𝕤.h(none, 𝕤.𝕘(𝕨, 𝕩))
 function (𝕤::TR3D)(𝕨, 𝕩)
   𝕩´ = 𝕤.𝕗(𝕨, 𝕩)
@@ -130,8 +142,6 @@ function (𝕤::TR3O)(𝕨, 𝕩)
   𝕨´ = 𝕤.𝕘 != none ? 𝕤.𝕘(𝕨, 𝕩) : none
   𝕤.h(𝕨´, 𝕩´)
 end
-(𝕤::M1)(𝕨, 𝕩) = 𝕤.run(𝕨, 𝕩)
-(𝕤::M2)(𝕨, 𝕩) = 𝕤.run(𝕨, 𝕩)
 
 module Runtime
   using Debugger
@@ -378,14 +388,6 @@ end
 
 str(s::String) = s
 
-struct VM
-  src::String
-  code::Array{Int64}
-  consts::Array{Any}
-  blocks::Array{Any}
-  bodies::Array{Any}
-end
-
 function run_code(vm::VM, env::Env, pc::Int64)
   stack = []
   while true
@@ -567,59 +569,47 @@ function run_body(vm::VM, parent::Env, body_idx::Int64, 𝕤, 𝕨, 𝕩, 𝕘, 
   run_code(vm, env, pc)
 end
 
-function run_block(vm::VM, env::Env, block)
-  typ, imm, body_idx = block
-  # @debug "BLOCK type=$(typ) immediate=$(imm) body=$(body_idx)"
-  function run(𝕤, 𝕨, 𝕩, 𝕘, 𝕗)
-    if isa(body_idx, Int)
-      run_body(vm, env, body_idx, 𝕤, 𝕨, 𝕩, 𝕘, 𝕗)
-    elseif isa(body_idx, Array) || isa(body_idx, AbstractArray)
-      ret = nothing
-      for body in body_idx
-        for idx in body
-          # TODO: need to check for PRED/SETH failures here
-          ret = run_body(vm, env, idx, 𝕤, 𝕨, 𝕩, 𝕘, 𝕗)
-        end
+function run_block_body(vm::VM, env::Env, block, 𝕤, 𝕨, 𝕩, 𝕘, 𝕗)
+  body_idx = block[3]
+  if isa(body_idx, Int)
+    run_body(vm, env, body_idx, 𝕤, 𝕨, 𝕩, 𝕘, 𝕗)
+  elseif isa(body_idx, AbstractArray)
+    ret = nothing
+    for body in body_idx
+      for idx in body
+        # TODO: need to check for PRED/SETH failures here
+        ret = run_body(vm, env, idx, 𝕤, 𝕨, 𝕩, 𝕘, 𝕗)
       end
-      @assert ret !== nothing
-      ret
     end
+    @assert ret !== nothing
+    ret
   end
+end
+
+function run_block(vm::VM, env::Env, block)
+  typ, imm = block
   if typ == 0 && imm == 1 # immediate
-    run(nothing, nothing, nothing, nothing, nothing)
+    run_block_body(vm, env, block, nothing, nothing, nothing, nothing, nothing)
   elseif typ == 0 && imm == 0 # function
-    𝕤 = F(
-          function(𝕨, 𝕩) run(𝕤, 𝕨, 𝕩, nothing, nothing) end,
-          nothing,
-          nothing,
-          nothing)
-    𝕤
+    F(vm, env, block, nothing, nothing, nothing)
   elseif typ == 1 && imm == 1 # mod1 immediate
     # @info "mod1 immediate"
-    𝕣 = M1(function(𝕨, 𝕩) run(𝕣, 𝕨, 𝕩, nothing, nothing) end)
+    𝕣 = M1(function(𝕨, 𝕩)
+           run_block_body(vm, env, block, 𝕣, 𝕨, 𝕩, nothing, nothing)
+         end)
     𝕣
   elseif typ == 2 && imm == 1 # mod2 immediate
-    𝕣 = M2(function(𝕨, 𝕩) run(𝕣, 𝕨, 𝕩, nothing, nothing) end)
+    𝕣 = M2(function(𝕨, 𝕩) run_block_body(vm, env, block, 𝕣, 𝕨, 𝕩, nothing, nothing) end)
     𝕣
   elseif typ == 1 && imm == 0 # mod1 deferred
     # @info "mod1 deferred"
     𝕣 = M1(function(𝕘, 𝕗)
-      𝕤 = F(
-            function(𝕨, 𝕩) run(𝕤, 𝕨, 𝕩, nothing, 𝕗) end,
-            nothing,
-            𝕣,
-            𝕗)
-      𝕤
+      F(vm, env, block, nothing, 𝕣, 𝕗)
     end)
     𝕣
   elseif typ == 2 && imm == 0 # mod2 deferred
     𝕣 = M2(function(𝕘, 𝕗)
-      𝕤 = F(
-            function(𝕨, 𝕩) run(𝕤, 𝕨, 𝕩, 𝕘, 𝕗) end,
-            𝕘,
-            𝕣,
-            𝕗)
-      𝕤
+      F(vm, env, block, 𝕘, 𝕣, 𝕗)
     end)
     𝕣
   end
