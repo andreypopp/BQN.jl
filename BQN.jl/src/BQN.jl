@@ -433,7 +433,7 @@ function run_code(vm::VM, env::Env, pc::Int64)
       end
       push!(stack, v)
     elseif instr == 0x0C # ARRM
-      # @debug "BYTECODE 1C ARRM"
+      # @info "BYTECODE 1C ARRM"
       pc += 1
       n = vm.code[pc + 1]
       v = RefList(Int(n))
@@ -504,7 +504,7 @@ function run_code(vm::VM, env::Env, pc::Int64)
       d = vm.code[pc + 1]
       pc += 1
       i = vm.code[pc + 1]
-      # @debug "BYTECODE 21 VARM D=$(d) I=$(i)"
+      # @info "BYTECODE 21 VARM D=$(d) I=$(i)"
       cenv = env
       while d > 0; cenv = cenv.parent; d -= 1 end
       ref = cenv.vars[i + 1]
@@ -517,7 +517,7 @@ function run_code(vm::VM, env::Env, pc::Int64)
       cenv = env
       while d > 0; cenv = cenv.parent; d -= 1 end
       ref = cenv.vars[i + 1]
-      # @debug "BYTECODE 22 VARU D=$(d) I=$(i)"
+      # @info "BYTECODE 22 VARU D=$(d) I=$(i)"
       # TODO: need to clear the ref
       # @info "BYTECODE 20 VARO D=$(d) I=$(i)" ref
       push!(stack, getv(ref))
@@ -566,6 +566,7 @@ function run_body(vm::VM, parent::Env, body_idx::Int64, 𝕤, 𝕨, 𝕩, 𝕘, 
   if num_vars >= 5 vars[5].value = 𝕗 end
   if num_vars >= 6 vars[6].value = 𝕘 end
   env = Env(parent, vars)
+  # @info "run_body"
   run_code(vm, env, pc)
 end
 
@@ -675,9 +676,9 @@ function decompose(𝕨, 𝕩)
     elseif isa(𝕩, F) && 𝕩.𝕘 !== nothing; [5, 𝕩.𝕗, 𝕩.𝕣, 𝕩.𝕘]
     elseif isa(𝕩, F) && 𝕩.𝕗 !== nothing; [4, 𝕩.𝕗, 𝕩.𝕣]
     elseif isa(𝕩, F);                    [1, 𝕩]
-    elseif isa(𝕩, TR2D);      [2, 𝕩.𝕘, 𝕩.h]
-    elseif isa(𝕩, TR3D);      [2, 𝕩.𝕗, 𝕩.𝕘, 𝕩.h]
-    elseif isa(𝕩, TR3O);      [2, 𝕩.𝕗, 𝕩.𝕘, 𝕩.h]
+    elseif isa(𝕩, TR2D);      [2, 𝕩.h, 𝕩.𝕘]
+    elseif isa(𝕩, TR3D);      [3, 𝕩.𝕘, 𝕩.h, 𝕩.𝕗]
+    elseif isa(𝕩, TR3O);      [3, 𝕩.𝕘, 𝕩.h, 𝕩.𝕗]
     elseif isa(𝕩, M1);        [4, 𝕩.𝕗, 𝕩]
     elseif isa(𝕩, M2);        [5, 𝕩.𝕗, 𝕩, 𝕩.𝕘]
     else                      [-1, 𝕩]
@@ -726,10 +727,10 @@ end
 
 module Repl
 using ReplMaker
-import ..bqneval
+import ..bqneval, ..bqneval0
 
 function init()
-  initrepl(bqneval,
+  initrepl(bqneval0,
            prompt_text="BQN) ",
            prompt_color=:blue, 
            startup_text=true,

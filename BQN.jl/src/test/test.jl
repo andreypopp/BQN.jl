@@ -16,12 +16,15 @@ include("./bytecode.jl")
 include("./simple.jl")
 include("./prim.jl")
 include("./under.jl")
+include("./identity.jl")
 
 function test_all()
   @testset verbose=true begin
     test_bytecode()
     test_simple()
     test_prim()
+    test_identity()
+    test_under()
   end
   nothing
 end
