@@ -1,3 +1,6 @@
+""" Core primitives required for r0."""
+module Provide
+
 using TimerOutputs
 
 import ..none, ..None, ..BQNError
@@ -276,3 +279,9 @@ const value = [
   bqnvalences,
   bqncatch,
 ]
+
+provide(n::Int64) = value[n + 1]
+
+export provide
+
+end

@@ -5,9 +5,9 @@ function run_testsuite(cases; only=nothing)
     if only !== nothing && !(idx in only); continue end
     @info "$(idx) $(code)"
     if isa(expected, DataType) && expected <: Exception
-      Test.@test_throws expected bqneval(code)
+      Test.@test_throws expected bqn(code)
     else
-      Test.@test expected == bqneval(code)
+      Test.@test expected == bqn(code)
     end
   end
 end

@@ -441,70 +441,30 @@ function run(src, code, consts, blocks, bodies)
 end
 
 """ Compile the BQN expression using bootstrap compiler."""
-function bqncompile0(code)
-    jlsrc = read(`./cjl.bqn $(code)`, String)
-    jlcode = eval(Meta.parse(jlsrc))
-    return jlcode
+function compile0(code)
+  jlsrc = read(`./cjl.bqn $(code)`, String)
+  jlcode = eval(Meta.parse(jlsrc))
+  return jlcode
 end
 
 """ Compile and run the BQN expression (using bootstrap compiler)."""
-function bqneval0(code)
-    jlcode = bqncompile0(code)
-    boot = eval(jlcode)
-    # @time run(code, boot...)
-    run(code, boot...)
+function bqn0(code)
+  jlcode = compile0(code)
+  boot = eval(jlcode)
+  # @time run(code, boot...)
+  run(code, boot...)
 end
-
-""" Core primitives required for r0."""
-module Provide
-include("./provide.jl")
-end
-
-provide(n::Int64) = Provide.value[n + 1]
 
 str(s::String) = s
 
-module R0
-import ..provide, ..str
-include("./r0.jl")
-end
+include("./provide.jl")
+using .Provide
 
-const _runtime_0 = run("<none>", R0.value...)
-runtime_0(n::Int64) = _runtime_0[n + 1]
+include("./runtime0.jl")
+using .Runtime0
 
-module R1
-import ..provide, ..runtime_0, ..str
-include("./r1.jl")
-end
-
-const _runtime, set_prims, set_inv = run("<none>", R1.value...)
-
-runtime(n::Int64) = _runtime[n + 1]
-
-function decompose(𝕨, 𝕩)
-  kind =
-    if     𝕩 in _runtime;                 [0, 𝕩]
-    elseif isa(𝕩, F) && 𝕩.𝕘 !== nothing;  [5, 𝕩.𝕗, 𝕩.𝕣, 𝕩.𝕘]
-    elseif isa(𝕩, FN) && 𝕩.𝕘 !== nothing; [5, 𝕩.𝕗, 𝕩.𝕣, 𝕩.𝕘]
-    elseif isa(𝕩, F) && 𝕩.𝕗 !== nothing;  [4, 𝕩.𝕗, 𝕩.𝕣]
-    elseif isa(𝕩, FN) && 𝕩.𝕗 !== nothing; [4, 𝕩.𝕗, 𝕩.𝕣]
-    elseif isa(𝕩, F);                     [1, 𝕩]
-    elseif isa(𝕩, FN);                    [1, 𝕩]
-    elseif isa(𝕩, TR2D);                  [2, 𝕩.h, 𝕩.𝕘]
-    elseif isa(𝕩, TR3D);                  [3, 𝕩.𝕘, 𝕩.h, 𝕩.𝕗]
-    elseif isa(𝕩, TR3O);                  [3, 𝕩.𝕘, 𝕩.h, 𝕩.𝕗]
-    else                                  [-1, 𝕩]
-    end
-  kind
-end
-
-const _runtime_length = length(_runtime)
-const _runtime_indices = IdDict(𝕗 => idx - 1
-                                for (idx, 𝕗) in enumerate(_runtime))
-
-prim_ind(𝕨, 𝕩) = get(_runtime_indices, 𝕩, _runtime_length)
-
-set_prims(none, [decompose, prim_ind])
+include("./runtime.jl")
+using .Runtime
 
 module C
 import ..runtime, ..str
@@ -514,39 +474,38 @@ end
 c = run("<none>", C.value...)
 
 """ Compile BQN expression using self-hosted compiler."""
-function bqncompile(src)
+function compile(src)
   c(_runtime, src)
 end
 
 """ Compile and eval BQN expression (using self-hosted compiler)."""
-function bqneval(src)
+function bqn(src)
   code, consts, blocks, bodies, toks, names = bqncompile(src)
   run(src, code, consts, blocks, bodies)
 end
 
-export bqneval
-
 """ Test suite using the bootstrap compiler."""
 module Tests0
-import ..BQNError, ..bqneval0 as bqneval
+import ..BQNError, ..bqn0 as bqn
 include("./test/test.jl")
 end
 
 """ Test suite using the self hosted compiler."""
 module Tests
-import ..BQNError, ..bqneval
+import ..BQNError, ..bqn
 include("./test/test.jl")
 end
 
 """ REPL mode."""
 module Repl
 using ReplMaker
-import ..bqneval, ..bqneval0
+
+# TODO: now using the bootstrap compiler, switch to bqn once self-hosted
+# compiler is fast enough.
+import ..bqn0 as bqn
 
 function init()
-  # TODO: now using the bootstrap compiler, switch to bqneval once self-hosted
-  # compiler is fast enough.
-  initrepl(bqneval0,
+  initrepl(bqn,
            prompt_text="BQN) ",
            prompt_color=:blue, 
            startup_text=true,
@@ -555,5 +514,7 @@ function init()
   nothing
 end
 end
+
+export bqn, bqn0
 
 end

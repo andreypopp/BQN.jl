@@ -19,8 +19,8 @@ Then:
 - Run `make init` to initialize submodules and build the CBQN (BQN
   implementation used for bootstrap).
 - Run `julia` and eval `using BQN`
-  - `BQN.bqneval0` evals the BQN expression using CBQN for compilation
-  - `BQN.bqneval` evals the BQN expression using the self hosted compiler
+  - `BQN.bqn0` evals the BQN expression using CBQN for compilation
+  - `BQN.bqn` evals the BQN expression using the self hosted compiler
 - `make test0` runs the test suite for VM using CBQN hosted compiler
 - `make test` runs the test suite for VM using self hosted compiler
 
