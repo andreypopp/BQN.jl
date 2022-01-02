@@ -464,12 +464,20 @@ provide(n::Int64) = Provide.value[n + 1]
 
 str(s::String) = s
 
-module R
+module R0
 import ..provide, ..str
-include("./r.jl")
+include("./r0.jl")
 end
 
-const _runtime, set_prims, set_inv = run("<none>", R.value...)
+const _runtime_0 = run("<none>", R0.value...)
+runtime_0(n::Int64) = _runtime_0[n + 1]
+
+module R1
+import ..provide, ..runtime_0, ..str
+include("./r1.jl")
+end
+
+const _runtime, set_prims, set_inv = run("<none>", R1.value...)
 
 runtime(n::Int64) = _runtime[n + 1]
 
