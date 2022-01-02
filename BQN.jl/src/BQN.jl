@@ -663,10 +663,11 @@ end
 function bqneval0(code)
     jlcode = bqncompile0(code)
     boot = eval(jlcode)
+    # @time run(code, boot...)
     run(code, boot...)
 end
 
-_provide = [
+const _provide = [
   Runtime.bqntype,
   Runtime.bqnfill,
   Runtime.bqnlog,
@@ -700,7 +701,7 @@ import ..provide, ..str
 include("./r.jl")
 end
 
-_runtime, set_prims, set_inv = run("<none>", R.value...)
+const _runtime, set_prims, set_inv = run("<none>", R.value...)
 
 runtime(n::Int64) = _runtime[n + 1]
 
@@ -722,13 +723,11 @@ function decompose(𝕨, 𝕩)
   kind
 end
 
-function prim_ind(𝕨, 𝕩)
-  # @info "prim_ind" 𝕨 𝕩
-  for (idx, 𝕗) in enumerate(_runtime);
-    if 𝕗 === 𝕩; return (idx - 1); end
-  end
-  return length(_runtime)
-end
+const _runtime_length = length(_runtime)
+const _runtime_indices = IdDict(𝕗 => idx - 1
+                                for (idx, 𝕗) in enumerate(_runtime))
+
+prim_ind(𝕨, 𝕩) = get(_runtime_indices, 𝕩, _runtime_length)
 
 set_prims(none, [decompose, prim_ind])
 
