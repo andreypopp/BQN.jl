@@ -167,30 +167,40 @@ module Runtime
 
   bqnadd(𝕨::None, 𝕩) = 𝕩
   bqnadd(𝕨, 𝕩) = 𝕨 + 𝕩
+
   bqnsub(𝕨::None, 𝕩::Number) = -𝕩
   bqnsub(𝕨, 𝕩) = 𝕨 - 𝕩
+
   bqnmul(𝕨::None, 𝕩::Number) = sign(𝕩)
   bqnmul(𝕨::Number, 𝕩::Number) = 𝕨 * 𝕩
+
   bqndiv(𝕨::None, 𝕩::Number) = 1/𝕩
   bqndiv(𝕨::Number, 𝕩::Number) = 𝕨/𝕩
+
   bqnpow(𝕨::None, 𝕩::Number) = ℯ^𝕩
   bqnpow(𝕨::Number, 𝕩::Number) = 𝕨^𝕩
+
   bqnroot(root::None, v) = sqrt(v)
   bqnroot(root, v) = v^(1/root)
+
   bqnabs(𝕨::None, v) = abs(v)
+
   bqnmin(𝕨::Int64, 𝕩::Number) = min(𝕨, 𝕩)
   bqnmin(𝕨::None, 𝕩::Number) = floor(𝕩)
+
   bqnnot(𝕨::None, 𝕩::Number) = +(1 - 𝕩)
   bqnnot(𝕨::Number, 𝕩::Number) = 1 + (𝕨 - 𝕩)
+
   bqnand(𝕨::Number, 𝕩::Number) = 𝕨*𝕩
+
   bqnor(𝕨::Number, 𝕩::Number) = (𝕨+𝕩)-(𝕨*𝕩)
 
   bqnidleft(𝕨, 𝕩) = 𝕨
+
   bqnidright(𝕨, 𝕩) = 𝕩
 
   function bqnvalences(𝕘, 𝕗)
     function (𝕨, 𝕩)
-      # @debug "PRIMITIVE bqnvalences"
       if 𝕨 === none
         𝕗(𝕨, 𝕩)
       else
@@ -201,7 +211,6 @@ module Runtime
 
   function bqncatch(𝕘, 𝕗)
     function (𝕨, 𝕩)
-      # @debug "PRIMITIVE bqncatch"
       try
         𝕗(𝕨, 𝕩)
       catch e
@@ -227,15 +236,6 @@ module Runtime
   bqndeshape(𝕨::None, 𝕩::String) = 𝕩
   bqndeshape(𝕨::None, 𝕩) = [𝕩]
 
-  # function row_major_reshape(𝕩::AbstractArray, size...)
-  #   𝕩 = reshape(𝕩, reverse([size...])...)
-  #   if size != ()
-  #     size_perm = length(size):-1:1
-  #     𝕩 = permutedims(𝕩, size_perm)
-  #   end
-  #   𝕩
-  # end
-
   function bqndeshape(𝕨::AbstractArray, 𝕩::AbstractArray)
     size = reverse(Tuple(Int(x) for x in 𝕨))
     if size == Base.size(𝕩); return 𝕩 end
@@ -255,12 +255,7 @@ module Runtime
   bqnpick(𝕨::Number, 𝕩::Number) = 𝕩
   bqnpick(𝕨::Float64, 𝕩::AbstractArray) = bqnpick(Int(𝕨), 𝕩)
   function bqnpick(𝕨::Int64, 𝕩::AbstractArray)
-    # @info "bqnpick" 𝕨 𝕩
-    if 𝕨 >= 0
-      𝕩[𝕨 + 1]
-    else
-      𝕩[end + (𝕨 + 1)]
-    end
+    if 𝕨 >= 0; 𝕩[𝕨 + 1] else 𝕩[end + (𝕨 + 1)] end
   end
   bqnpick(𝕨::None, 𝕩::AbstractArray) = bqnpick(0, 𝕩)
   # TODO: get rid of collect, this is slow!
@@ -345,7 +340,6 @@ module Runtime
   bqnlog(𝕨::Number, 𝕩::Number) = log(𝕨, 𝕩)
 
   function bqngrouplen(𝕨, 𝕩::AbstractArray)
-    # @info "bqngrouplen" 𝕨 𝕩
     order = []
     lengths = Dict{Int,Int}()
     max𝕩 = -1
@@ -359,21 +353,16 @@ module Runtime
       end
     end
     minl = max(max𝕩, 𝕨 !== none ? (𝕨 - 1) : -1)
-    storage = [get(lengths, x, 0) for x in 0:minl]
-    storage
+    [get(lengths, x, 0) for x in 0:minl]
   end
 
   function bqngroupord(𝕨, 𝕩::AbstractArray)
-    # @info "bqngroupord" 𝕨 𝕩
-    # TODO: Use info in 𝕨 (which is `grouplen𝕩`)?
     indices = [[] for _ in 1:length(𝕨)]
     for (idx, x) in enumerate(𝕩)
       if x < 0; continue end
       push!(indices[Int(x) + 1], idx - 1)
     end
-    storage = vcat(indices...)
-    # @info "bqngroupord" 𝕩 storage
-    storage
+    vcat(indices...)
   end
 
   function bqnassert(𝕨, 𝕩)
@@ -383,36 +372,17 @@ module Runtime
       # TODO: should we use 𝕩 as error message in case it's a string? r1.bqn
       # seems to be relying on that behaviour... see !∘"msg" pattern.
       msg = 𝕨 === none ? (isa(𝕩, String) ? 𝕩 : "ERROR") : 𝕨
-      if isa(msg, AbstractArray)
-        msg = join(msg)
-      end
+      if isa(msg, AbstractArray); msg = join(msg) end
       throw(BQNError(msg))
     end
   end
 
   function bqnfillby(𝕘, 𝕗)
     function(𝕨, 𝕩)
-      # @debug "PRIMITIVE bqnfillby"
       𝕗(𝕨, 𝕩)
     end
   end
-
-  function runtime_not_implemented(idx)
-    return function(w, x)
-      @error "$(idx) runtime function is not implemented"
-      @assert false
-    end
-  end
-
-  function provide_not_implemented(idx)
-    return function(w, x)
-      @error "$(idx) provide function is not implemented"
-      @assert false
-    end
-  end
 end
-
-str(s::String) = s
 
 function run_code(vm::VM, frame::Frame, pc::Int64)
   stack = []
@@ -689,6 +659,8 @@ _provide = [
   Runtime.bqncatch,
 ]
 provide(n::Int64) = _provide[n + 1]
+
+str(s::String) = s
 
 module R
 import ..provide, ..str
