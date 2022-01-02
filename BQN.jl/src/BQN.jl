@@ -1,6 +1,7 @@
 module BQN
-using Logging
-using Debugger
+using TimerOutputs
+
+const to = TimerOutput()
 
 """ BQN error."""
 struct BQNError <: Exception
@@ -194,265 +195,34 @@ function (𝕤::TR3O)(𝕨, 𝕩)
   𝕤.h(𝕨´, 𝕩´)
 end
 
-module Runtime
-  using Debugger
-  import ..None, ..none, ..F, ..FN, ..TR2D, ..TR3D, ..TR3O, ..M1D, ..M1I, ..M2D, ..M2I, ..BQNError
-
-  bqnadd(𝕨::None, 𝕩) = 𝕩
-  bqnadd(𝕨, 𝕩) = 𝕨 + 𝕩
-
-  bqnsub(𝕨::None, 𝕩::Number) = -𝕩
-  bqnsub(𝕨, 𝕩) = 𝕨 - 𝕩
-
-  bqnmul(𝕨::None, 𝕩::Number) = sign(𝕩)
-  bqnmul(𝕨::Number, 𝕩::Number) = 𝕨 * 𝕩
-
-  bqndiv(𝕨::None, 𝕩::Number) = 1/𝕩
-  bqndiv(𝕨::Number, 𝕩::Number) = 𝕨/𝕩
-
-  bqnpow(𝕨::None, 𝕩::Number) = ℯ^𝕩
-  bqnpow(𝕨::Number, 𝕩::Number) = if 𝕩>=0; 𝕨^𝕩 else 1/(𝕨^(-𝕩)) end
-
-  bqnroot(root::None, v) = sqrt(v)
-  bqnroot(root, v) = v^(1/root)
-
-  bqnabs(𝕨::None, v) = abs(v)
-
-  bqnmin(𝕨::Int64, 𝕩::Number) = min(𝕨, 𝕩)
-  bqnmin(𝕨::None, 𝕩::Number) = floor(𝕩)
-
-  bqnnot(𝕨::None, 𝕩::Number) = +(1 - 𝕩)
-  bqnnot(𝕨::Number, 𝕩::Number) = 1 + (𝕨 - 𝕩)
-
-  bqnand(𝕨::Number, 𝕩::Number) = 𝕨*𝕩
-
-  bqnor(𝕨::Number, 𝕩::Number) = (𝕨+𝕩)-(𝕨*𝕩)
-
-  bqnidleft(𝕨, 𝕩) = 𝕨
-
-  bqnidright(𝕨, 𝕩) = 𝕩
-
-  function bqnvalences(𝕘, 𝕗)
-    𝕣 = bqnvalences
-    run = function(𝕨, 𝕩)
-      if 𝕨 === none
-        𝕗(𝕨, 𝕩)
-      else
-        𝕘(𝕨, 𝕩)
-      end
-    end
-    FN(run, 𝕘, 𝕣, 𝕗)
-  end
-
-  function bqncatch(𝕘, 𝕗)
-    𝕣 = bqncatch
-    run = function(𝕨, 𝕩)
-      try
-        𝕗(𝕨, 𝕩)
-      catch e
-        𝕘(𝕨, 𝕩)
-      end
-    end
-    FN(run, 𝕘, 𝕣, 𝕗)
-  end
-
-  bqneq(𝕨::None, 𝕩::AbstractArray) = ndims(𝕩)
-  bqneq(𝕨::None, 𝕩::String) = 1
-  bqneq(𝕨::None, 𝕩) = 0
-  bqneq(𝕨, 𝕩) = Int(𝕨 == 𝕩)
-
-  bqnlte(𝕨, 𝕩) = Int(𝕨 <= 𝕩)
-  bqnlte(𝕨::Number, 𝕩::Char) = 1
-  bqnlte(𝕨::Char, 𝕩::Number) = 0
-
-  bqnshape(𝕨, 𝕩::AbstractArray) = reverse([x for x in size(𝕩)])
-  bqnshape(𝕨, 𝕩::String) = Int[length(𝕩)]
-  bqnshape(𝕨, 𝕩) = []
-
-  bqndeshape(𝕨::None, 𝕩::AbstractArray) = vec(𝕩)
-  bqndeshape(𝕨::None, 𝕩::String) = 𝕩
-  bqndeshape(𝕨::None, 𝕩) = [𝕩]
-
-  function bqndeshape(𝕨::AbstractArray, 𝕩::AbstractArray)
-    size = reverse(Tuple(Int(x) for x in 𝕨))
-    if size == Base.size(𝕩); return 𝕩 end
-    reshape(𝕩, size)
-  end
-
-  function bqndeshape(𝕨::AbstractArray, 𝕩::String)
-    𝕩 = collect(𝕩)
-    bqndeshape(𝕨, 𝕩)
-  end
-        
-  function bqndeshape(𝕨::AbstractArray, 𝕩::Any)
-    @assert length(𝕨) == 0
-    collect(𝕩)
-  end
-
-  bqnpick(𝕨::Number, 𝕩::Number) = 𝕩
-  bqnpick(𝕨::Float64, 𝕩::AbstractArray) = bqnpick(Int(𝕨), 𝕩)
-  function bqnpick(𝕨::Int64, 𝕩::AbstractArray)
-    if 𝕨 >= 0; 𝕩[𝕨 + 1] else 𝕩[end + (𝕨 + 1)] end
-  end
-  bqnpick(𝕨::None, 𝕩::AbstractArray) = bqnpick(0, 𝕩)
-  # TODO: get rid of collect, this is slow!
-  bqnpick(𝕨::Number, 𝕩::String) = bqnpick(𝕨, collect(𝕩))
-  bqnpick(𝕨::None, 𝕩::String) = bqnpick(0, collect(𝕩))
-  bqnpick(𝕨::None, 𝕩) = 𝕩
-
-  bqnwindow(𝕨, 𝕩) = [x for x in 0:(𝕩-1)]
-
-  function bqntable(𝕘, 𝕗)
-    𝕣 = bqntable
-    # TODO: need to get rid of calls to collect() here, instead need to iterate
-    # over graphemes for Strings
-    run = function(𝕨, 𝕩)
-      res =
-        if 𝕨 === none
-          𝕩 = if !isa(𝕩, AbstractArray); collect(𝕩) else 𝕩 end
-          [𝕗(none, x) for x in 𝕩]
-        else
-          𝕨 = if !isa(𝕨, AbstractArray); collect(𝕨) else 𝕨 end
-          𝕩 = if !isa(𝕩, AbstractArray); collect(𝕩) else 𝕩 end
-          rsize = (size(𝕩)..., size(𝕨)...)
-          r = [𝕗(w, x) for w in 𝕨 for x in 𝕩]
-          reshape(r, rsize)
-        end
-      res
-    end
-    FN(run, 𝕘, 𝕣, 𝕗)
-  end
-
-  function bqnscan(𝕘, 𝕗)
-    @assert 𝕘 === nothing
-    𝕣 = bqnscan
-    run = function(𝕨, 𝕩::AbstractArray)
-      bqnassert(
-                "`: Argument cannot have rank 0",
-                Int(ndims(𝕩) != 0))
-      bqnassert(
-                "`: Shape of 𝕨 must match the cell of 𝕩",
-                Int(𝕨 == none ||
-                    size(𝕨) == () && ndims(𝕩) == 1 ||
-                    size(𝕨)[1:1] == size(𝕩)[1:1]))
-      if 𝕨 == none
-        accumulate(𝕗, 𝕩, dims=ndims(𝕩))
-      elseif size(𝕨) == ()
-        accumulate(𝕗, 𝕩, dims=ndims(𝕩), init=𝕨)
-      else
-        # Because accumulate() doesn't support init being an array we provide
-        # init value by concatenating it over the major dimension with hvncat():
-        ndims𝕩 = ndims(𝕩)
-        𝕩 = hvncat(ndims𝕩, 𝕨, 𝕩)
-        𝕩 = accumulate(𝕗, 𝕩, dims=ndims𝕩)
-        # ... but this will produce an extra "row" in this dimension so we
-        # produce a view which "cuts" that out with a view over this array:
-        # TODO: Revisit that for performance!
-        indices = [(:) for _ in size(𝕩)[1:end - 1]]
-        @view 𝕩[indices..., 2:end]
-      end
-    end
-    FN(run, 𝕘, 𝕣, 𝕗)
-  end
-
-  function bqntype(𝕨::None, 𝕩)
-    type = bqntype′(𝕨, 𝕩)
-    # @info "bqntype" 𝕩 type
-    type
-  end
-  bqntype′(𝕨::None, 𝕩::AbstractArray) = 0
-  bqntype′(𝕨::None, 𝕩::String) = 0
-  bqntype′(𝕨::None, 𝕩::Number) = 1
-  bqntype′(𝕨::None, 𝕩::Char) = 2
-  bqntype′(𝕨::None, 𝕩::Function) = 3
-  bqntype′(𝕨::None, 𝕩::TR2D) = 3
-  bqntype′(𝕨::None, 𝕩::TR3D) = 3
-  bqntype′(𝕨::None, 𝕩::TR3O) = 3
-  bqntype′(𝕨::None, 𝕩::F) = 3
-  bqntype′(𝕨::None, 𝕩::FN) = 3
-  bqntype′(𝕨::None, 𝕩::M1D) = 4
-  bqntype′(𝕨::None, 𝕩::M1I) = 4
-  bqntype′(𝕨::None, 𝕩::M2D) = 5
-  bqntype′(𝕨::None, 𝕩::M2I) = 5
-
-  bqnfill(𝕨::None, 𝕩::String) = ' '
-  bqnfill(𝕨::None, 𝕩::AbstractArray) = 0
-  bqnfill(𝕨, 𝕩) = 𝕩
-
-  bqnlog(𝕨::None, 𝕩::Number) = log(ℯ, 𝕩)
-  bqnlog(𝕨::Number, 𝕩::Number) = log(𝕨, 𝕩)
-
-  function bqngrouplen(𝕨, 𝕩::AbstractArray)
-    order = []
-    lengths = Dict{Int,Int}()
-    max𝕩 = -1
-    for x in 𝕩
-      max𝕩 = max(max𝕩, x)
-      if haskey(lengths, x)
-        lengths[Int(x)] += 1
-      else
-        lengths[Int(x)] = 1
-        push!(order, x)
-      end
-    end
-    minl = max(max𝕩, 𝕨 !== none ? (𝕨 - 1) : -1)
-    [get(lengths, x, 0) for x in 0:minl]
-  end
-
-  function bqngroupord(𝕨, 𝕩::AbstractArray)
-    indices = [[] for _ in 1:length(𝕨)]
-    for (idx, x) in enumerate(𝕩)
-      if x < 0; continue end
-      push!(indices[Int(x) + 1], idx - 1)
-    end
-    vcat(indices...)
-  end
-
-  function bqnassert(𝕨, 𝕩)
-    if 𝕩 == 1
-      1
-    else
-      # TODO: should we use 𝕩 as error message in case it's a string? r1.bqn
-      # seems to be relying on that behaviour... see !∘"msg" pattern.
-      msg = 𝕨 === none ? (isa(𝕩, String) ? 𝕩 : "ERROR") : 𝕨
-      if isa(msg, AbstractArray); msg = join(msg) end
-      throw(BQNError(msg))
-    end
-  end
-
-  function bqnfillby(𝕘, 𝕗)
-    𝕣 = bqnfillby
-    run = function(𝕨, 𝕩)
-      𝕗(𝕨, 𝕩)
-    end
-    FN(run, 𝕘, 𝕣, 𝕗)
-  end
-end
-
 function run_code(vm::VM, frame::Frame, pc::Int64)
   stack = []
   while true
     instr = vm.code[pc + 1]
     if instr == 0x00 # PUSH
+      @timeit_debug to "PUSH" begin
       pc += 1
       v = vm.consts[vm.code[pc + 1] + 1]
-      # @info "BYTECODE 00 PUSH" v
       push!(stack, v)
+      end
     elseif instr == 0x01 # DFND
-      # @debug "BYTECODE 01 DFND"
+      @timeit_debug to "DFND" begin
       pc += 1
       block = vm.blocks[vm.code[pc + 1] + 1]
       push!(stack, run_block(vm, frame, block))
+      end
     elseif instr == 0x06 # POPS
-      # @debug "BYTECODE 06 POPS"
+      @timeit_debug to "POPS" begin
       pop!(stack)
+      end
     elseif instr == 0x07 # RETN
-      # @info "BYTECODE 07 RETN" stack
+      @timeit_debug to "RETN" begin
       return pop!(stack)
+      end
     elseif instr == 0x0B # ARRO
+      @timeit_debug to "ARRO" begin
       pc += 1
       n = vm.code[pc + 1]
-      # @info "BYTECODE 0B ARRO N=$(n)"
       # try to "infer" the type
       # TODO: benchmark if it helps...
       T = if n > 0
@@ -473,8 +243,9 @@ function run_code(vm::VM, frame::Frame, pc::Int64)
         push!(v, popat!(stack, Int(length(stack) - n + i)))
       end
       push!(stack, v)
+      end
     elseif instr == 0x0C # ARRM
-      # @info "BYTECODE 1C ARRM"
+      @timeit_debug to "ARRM" begin
       pc += 1
       n = vm.code[pc + 1]
       v = Refs.RefList(Int(n))
@@ -482,18 +253,21 @@ function run_code(vm::VM, frame::Frame, pc::Int64)
         push!(v.refs, popat!(stack, Int(length(stack) - n + i)))
       end
       push!(stack, v)
+      end
     elseif instr == 0x10 # FN1C
-      # @info "BYTECODE 10 FN1C"
+      @timeit_debug to "FN1C" begin
       s, x = pop!(stack), pop!(stack)
       v = s(none, x)
       push!(stack, v)
+      end
     elseif instr == 0x11 # FN2C
+      @timeit_debug to "FN2C" begin
       w, s, x = pop!(stack), pop!(stack), pop!(stack)
       v = s(w, x)
-      # @info "BYTECODE 11 FN2C" w s x v s.𝕤
       push!(stack, v)
+      end
     elseif instr == 0x12 # FN1O
-      # @debug "BYTECODE 12 FN1O"
+      @timeit_debug to "FN10" begin
       s, x = pop!(stack), pop!(stack)
       if x !== none
         v = s(none, x)
@@ -501,36 +275,44 @@ function run_code(vm::VM, frame::Frame, pc::Int64)
       else
         push!(stack, none)
       end
+      end
     elseif instr == 0x13 # FN2O
+      @timeit_debug to "FN20" begin
       w, s, x = pop!(stack), pop!(stack), pop!(stack)
-      # @debug "BYTECODE 13 FN20"
       if x !== none
         v = s(w, x)
         push!(stack, v)
       else
         push!(stack, none)
       end
+      end
     elseif instr == 0x14 # TR2D
-      # @debug "BYTECODE 14 TR2D"
+      @timeit_debug to "TR2D" begin
       h, 𝕘 = pop!(stack), pop!(stack)
       push!(stack, TR2D(h, 𝕘))
+      end
     elseif instr == 0x15 # TR3D
-      # @debug "BYTECODE 15 TR3D"
+      @timeit_debug to "TR3D" begin
       𝕘, h, 𝕗 = pop!(stack), pop!(stack), pop!(stack)
       push!(stack, TR3D(h, 𝕘, 𝕗))
+      end
     elseif instr == 0x17 # TR3O
-      # @debug "BYTECODE 17 TR3O"
+      @timeit_debug to "TR3O" begin
       𝕘, h, 𝕗 = pop!(stack), pop!(stack), pop!(stack)
       push!(stack, TR3O(h, 𝕘, 𝕗))
+      end
     elseif instr == 0x1A # MD1C
-      # @debug "BYTECODE 1A MD1C"
+      @timeit_debug to "MD1C" begin
       f, r = pop!(stack), pop!(stack)
       push!(stack, r(nothing, f))
+      end
     elseif instr == 0x1B # MD2C
-      # @debug "BYTECODE 1B MD2C"
+      @timeit_debug to "MD2C" begin
       f, r, g = pop!(stack), pop!(stack), pop!(stack)
       push!(stack, r(g, f))
+      end
     elseif instr == 0x20 # VARO
+      @timeit_debug to "VARO" begin
       pc += 1
       d = vm.code[pc + 1]
       pc += 1
@@ -538,19 +320,21 @@ function run_code(vm::VM, frame::Frame, pc::Int64)
       cenv = frame
       while d > 0; cenv = cenv.parent; d -= 1 end
       ref = cenv.vars[i + 1]
-      # @info "BYTECODE 20 VARO D=$(d) I=$(i)" ref
       push!(stack, Refs.getv(ref))
+      end
     elseif instr == 0x21 # VARM
+      @timeit_debug to "VARM" begin
       pc += 1
       d = vm.code[pc + 1]
       pc += 1
       i = vm.code[pc + 1]
-      # @info "BYTECODE 21 VARM D=$(d) I=$(i)"
       cenv = frame
       while d > 0; cenv = cenv.parent; d -= 1 end
       ref = cenv.vars[i + 1]
       push!(stack, ref)
+      end
     elseif instr == 0x22 # VARU
+      @timeit_debug to "VARU" begin
       pc += 1
       d = vm.code[pc + 1]
       pc += 1
@@ -558,34 +342,39 @@ function run_code(vm::VM, frame::Frame, pc::Int64)
       cenv = frame
       while d > 0; cenv = cenv.parent; d -= 1 end
       ref = cenv.vars[i + 1]
-      # @info "BYTECODE 22 VARU D=$(d) I=$(i)"
       # TODO: need to clear the ref
-      # @info "BYTECODE 20 VARO D=$(d) I=$(i)" ref
       push!(stack, Refs.getv(ref))
+      end
     elseif instr == 0x2C # NOTM
+      @timeit_debug to "NOTM" begin
       push!(stack, Refs.RefNot())
+      end
     elseif instr == 0x30 # SETN
+      @timeit_debug to "SETN" begin
       ref, value = pop!(stack), pop!(stack)
-      # @debug "BYTECODE 30 SETN"
       Refs.setn!(ref, value)
       push!(stack, value)
+      end
     elseif instr == 0x31 # SETU
+      @timeit_debug to "SETU" begin
       ref, value = pop!(stack), pop!(stack)
-      # @debug "BYTECODE 31 SETU"
       Refs.setu!(ref, value)
       push!(stack, value)
+      end
     elseif instr == 0x32 # SETM
+      @timeit_debug to "SETM" begin
       ref, 𝕗, 𝕩 = pop!(stack), pop!(stack), pop!(stack)
-      # @debug "BYTECODE 32 SETM"
       value = 𝕗(Refs.getv(ref), 𝕩)
       Refs.setu!(ref, value)
       push!(stack, value)
+      end
     elseif instr == 0x33 # SETC
+      @timeit_debug to "SETC" begin
       ref, 𝕗 = pop!(stack), pop!(stack)
-      # @debug "BYTECODE 33 SETC"
       value = 𝕗(none, Refs.getv(ref))
       Refs.setu!(ref, value)
       push!(stack, value)
+      end
     else
       @error "UNKNOWN BYTECODE 0x$(string(instr, base=16))"
       @assert false
@@ -596,8 +385,8 @@ end
 
 function run_body(vm::VM, parent::Frame, body_idx::Int64, 𝕤, 𝕨, 𝕩, 𝕘, 𝕗)
   pc, num_vars = vm.bodies[body_idx + 1]
-  # @debug "BODY@$(idx-1) $(num_vars)"
   vars = Refs.Ref[]
+  sizehint!(vars, num_vars)
   for _ in 1:num_vars; push!(vars, Refs.Ref(nothing)) end
   if num_vars >= 1 vars[1].value = 𝕤 end
   if num_vars >= 2 vars[2].value = 𝕩 end
@@ -607,8 +396,7 @@ function run_body(vm::VM, parent::Frame, body_idx::Int64, 𝕤, 𝕨, 𝕩, 𝕘
   if num_vars >= 5 vars[5].value = 𝕗 end
   if num_vars >= 6 vars[6].value = 𝕘 end
   frame = Frame(parent, vars)
-  # @info "run_body"
-  run_code(vm, frame, pc)
+  @timeit_debug to string("run_code", body_idx) run_code(vm, frame, pc)
 end
 
 function run_block_body(vm::VM, frame::Frame, block, 𝕤, 𝕨, 𝕩, 𝕘, 𝕗)
@@ -667,32 +455,12 @@ function bqneval0(code)
     run(code, boot...)
 end
 
-const _provide = [
-  Runtime.bqntype,
-  Runtime.bqnfill,
-  Runtime.bqnlog,
-  Runtime.bqngrouplen,
-  Runtime.bqngroupord,
-  Runtime.bqnassert,
-  Runtime.bqnadd,
-  Runtime.bqnsub,
-  Runtime.bqnmul,
-  Runtime.bqndiv,
-  Runtime.bqnpow,
-  Runtime.bqnmin,
-  Runtime.bqneq,
-  Runtime.bqnlte,
-  Runtime.bqnshape,
-  Runtime.bqndeshape,
-  Runtime.bqnpick,
-  Runtime.bqnwindow,
-  Runtime.bqntable,
-  Runtime.bqnscan,
-  Runtime.bqnfillby,
-  Runtime.bqnvalences,
-  Runtime.bqncatch,
-]
-provide(n::Int64) = _provide[n + 1]
+""" Core primitives required for r0."""
+module Provide
+include("./provide.jl")
+end
+
+provide(n::Int64) = Provide.value[n + 1]
 
 str(s::String) = s
 
@@ -719,7 +487,6 @@ function decompose(𝕨, 𝕩)
     elseif isa(𝕩, TR3O);                  [3, 𝕩.𝕘, 𝕩.h, 𝕩.𝕗]
     else                                  [-1, 𝕩]
     end
-  # @info "decompose" 𝕩 kind
   kind
 end
 
