@@ -235,11 +235,19 @@ module Runtime
   end
 
   bqnpick(𝕨::Number, 𝕩::Number) = 𝕩
-  bqnpick(𝕨::Number, 𝕩::AbstractArray) = 𝕩[Int(𝕨) + 1]
+  bqnpick(𝕨::Float64, 𝕩::AbstractArray) = bqnpick(Int(𝕨), 𝕩)
+  function bqnpick(𝕨::Int64, 𝕩::AbstractArray)
+    # @info "bqnpick" 𝕨 𝕩
+    if 𝕨 >= 0
+      𝕩[𝕨 + 1]
+    else
+      𝕩[end + (𝕨 + 1)]
+    end
+  end
   bqnpick(𝕨::None, 𝕩::AbstractArray) = bqnpick(0, 𝕩)
   # TODO: get rid of collect, this is slow!
-  bqnpick(𝕨::Number, 𝕩::String) = collect(𝕩)[Int(𝕨) + 1]
-  bqnpick(𝕨::None, 𝕩::String) = bqnpick(0, 𝕩)
+  bqnpick(𝕨::Number, 𝕩::String) = bqnpick(𝕨, collect(𝕩))
+  bqnpick(𝕨::None, 𝕩::String) = bqnpick(0, collect(𝕩))
   bqnpick(𝕨::None, 𝕩) = 𝕩
 
   bqnwindow(𝕨, 𝕩) = [x for x in 0:(𝕩-1)]
