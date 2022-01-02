@@ -2,37 +2,94 @@ module BQN
 using Logging
 using Debugger
 
-struct BQNError <: Exception msg::String end
+""" BQN error."""
+struct BQNError <: Exception
+  msg::String
+end
 
-abstract type Var end
-
+""" A special value designating an absence of an argument."""
 struct None end
 const none = None()
 
-mutable struct Ref <: Var
+module Refs
+
+abstract type BaseRef end
+
+""" Reference which cannot hold any value."""
+struct RefNot <: BaseRef end
+
+Base.show(io::IO, r::RefNot) = print(io, "BQN.RefNot")
+
+""" Reference which can hold a single value."""
+mutable struct Ref <: BaseRef
   value::Union{Any,Nothing}
 end
 
 Base.show(io::IO, r::Ref) = print(io, "BQN.Ref")
 
-struct RefList <: Var
-  vec::Vector{Var}
+""" A list of references."""
+struct RefList <: BaseRef
+  refs::Vector{BaseRef}
   function RefList(n::Int64)
-    v = new(Vector{Var}())
-    sizehint!(v.vec, Int(n))
+    v = new(Vector{BaseRef}())
+    sizehint!(v.refs, n)
     v
   end
 end
 
-function Base.show(io::IO, rs::RefList)
-  for x in rs.vec; show(io, x) end
+Base.show(io::IO, rs::RefList) = show(io, rs.refs)
+
+""" Get a value out of a reference."""
+getv(ref::BaseRef) = @assert false
+
+function getv(ref::Ref)
+  @assert ref.value !== nothing
+  ref.value
 end
 
-struct RefNot <: Var end
+function getv(ref::RefList)
+  map(getv, ref.refs)
+end
 
-struct Env
-  parent::Union{Env,Nothing}
-  vars::Vector{Var}
+""" Set an initial value to a reference."""
+setn!(ref::BaseRef) = @assert false
+
+function setn!(ref::Ref, value::Any)
+  @assert ref.value == nothing
+  ref.value = value
+end
+
+function setn!(ref::RefList, value::AbstractArray)
+  @assert length(ref.refs) == length(value)
+  for (refitem, valueitem) in zip(ref.refs, value)
+    setn!(refitem, valueitem)
+  end
+end
+
+function setn!(ref::RefNot, value::Any) end
+
+""" Update a reference value."""
+setu!(ref::BaseRef) = @assert false
+
+function setu!(ref::Ref, value::Any)
+  @assert ref.value != nothing
+  ref.value = value
+end
+
+function setu!(ref::RefList, value::AbstractArray)
+  @assert length(ref.refs) == length(value)
+  for (refitem, valueitem) in zip(ref.refs, value)
+    setu!(refitem, valueitem)
+  end
+end
+
+function setu!(ref::RefNot, value::Any) end
+
+end
+
+struct Frame
+  parent::Union{Frame,Nothing}
+  vars::Vector{Refs.Ref}
 end
 
 struct VM
@@ -43,48 +100,9 @@ struct VM
   bodies::Array{Any}
 end
 
-function getv(ref::Ref)
-  @assert ref.value !== nothing
-  ref.value
-end
-
-function getv(ref::RefList)
-  map(getv, ref.vec)
-end
-
-function setn!(ref::Ref, value::Any)
-  @assert ref.value == nothing
-  ref.value = value
-end
-
-function setn!(ref::RefList, value::AbstractArray)
-  @assert length(ref.vec) == length(value)
-  for (refitem, valueitem) in zip(ref.vec, value)
-    setn!(refitem, valueitem)
-  end
-end
-
-function setn!(ref::RefNot, value::Any)
-end
-
-function setu!(ref::Ref, value::Any)
-  @assert ref.value != nothing
-  ref.value = value
-end
-
-function setu!(ref::RefList, value::AbstractArray)
-  @assert length(ref.vec) == length(value)
-  for (refitem, valueitem) in zip(ref.vec, value)
-    setu!(refitem, valueitem)
-  end
-end
-
-function setu!(ref::RefNot, value::Any)
-end
-
 struct F
   vm::VM
-  env::Env
+  frame::Frame
   block::Any
   𝕘::Union{Any,Nothing}
   𝕣::Union{Any,Nothing}
@@ -128,7 +146,7 @@ Base.show(io::IO, f::M2) = show(io, "<BQN 2-modifier>")
 (𝕤::Char)(𝕨, 𝕩) = 𝕤
 (𝕤::Bool)(𝕨, 𝕩) = 𝕤
 (𝕤::String)(𝕨, 𝕩) = 𝕤
-(𝕤::F)(𝕨, 𝕩) = run_block_body(𝕤.vm, 𝕤.env, 𝕤.block, 𝕤, 𝕨, 𝕩, 𝕤.𝕘, 𝕤.𝕗)
+(𝕤::F)(𝕨, 𝕩) = run_block_body(𝕤.vm, 𝕤.frame, 𝕤.block, 𝕤, 𝕨, 𝕩, 𝕤.𝕘, 𝕤.𝕗)
 (𝕤::M1)(𝕨, 𝕩) = 𝕤.run(𝕨, 𝕩)
 (𝕤::M2)(𝕨, 𝕩) = 𝕤.run(𝕨, 𝕩)
 (𝕤::TR2D)(𝕨, 𝕩) = 𝕤.h(none, 𝕤.𝕘(𝕨, 𝕩))
@@ -396,7 +414,7 @@ end
 
 str(s::String) = s
 
-function run_code(vm::VM, env::Env, pc::Int64)
+function run_code(vm::VM, frame::Frame, pc::Int64)
   stack = []
   while true
     instr = vm.code[pc + 1]
@@ -409,7 +427,7 @@ function run_code(vm::VM, env::Env, pc::Int64)
       # @debug "BYTECODE 01 DFND"
       pc += 1
       block = vm.blocks[vm.code[pc + 1] + 1]
-      push!(stack, run_block(vm, env, block))
+      push!(stack, run_block(vm, frame, block))
     elseif instr == 0x06 # POPS
       # @debug "BYTECODE 06 POPS"
       pop!(stack)
@@ -444,9 +462,9 @@ function run_code(vm::VM, env::Env, pc::Int64)
       # @info "BYTECODE 1C ARRM"
       pc += 1
       n = vm.code[pc + 1]
-      v = RefList(Int(n))
+      v = Refs.RefList(Int(n))
       for i in 1:n
-        push!(v.vec, popat!(stack, Int(length(stack) - n + i)))
+        push!(v.refs, popat!(stack, Int(length(stack) - n + i)))
       end
       push!(stack, v)
     elseif instr == 0x10 # FN1C
@@ -502,18 +520,18 @@ function run_code(vm::VM, env::Env, pc::Int64)
       d = vm.code[pc + 1]
       pc += 1
       i = vm.code[pc + 1]
-      cenv = env
+      cenv = frame
       while d > 0; cenv = cenv.parent; d -= 1 end
       ref = cenv.vars[i + 1]
       # @info "BYTECODE 20 VARO D=$(d) I=$(i)" ref
-      push!(stack, getv(ref))
+      push!(stack, Refs.getv(ref))
     elseif instr == 0x21 # VARM
       pc += 1
       d = vm.code[pc + 1]
       pc += 1
       i = vm.code[pc + 1]
       # @info "BYTECODE 21 VARM D=$(d) I=$(i)"
-      cenv = env
+      cenv = frame
       while d > 0; cenv = cenv.parent; d -= 1 end
       ref = cenv.vars[i + 1]
       push!(stack, ref)
@@ -522,36 +540,36 @@ function run_code(vm::VM, env::Env, pc::Int64)
       d = vm.code[pc + 1]
       pc += 1
       i = vm.code[pc + 1]
-      cenv = env
+      cenv = frame
       while d > 0; cenv = cenv.parent; d -= 1 end
       ref = cenv.vars[i + 1]
       # @info "BYTECODE 22 VARU D=$(d) I=$(i)"
       # TODO: need to clear the ref
       # @info "BYTECODE 20 VARO D=$(d) I=$(i)" ref
-      push!(stack, getv(ref))
+      push!(stack, Refs.getv(ref))
     elseif instr == 0x2C # NOTM
-      push!(stack, RefNot())
+      push!(stack, Refs.RefNot())
     elseif instr == 0x30 # SETN
       ref, value = pop!(stack), pop!(stack)
       # @debug "BYTECODE 30 SETN"
-      setn!(ref, value)
+      Refs.setn!(ref, value)
       push!(stack, value)
     elseif instr == 0x31 # SETU
       ref, value = pop!(stack), pop!(stack)
       # @debug "BYTECODE 31 SETU"
-      setu!(ref, value)
+      Refs.setu!(ref, value)
       push!(stack, value)
     elseif instr == 0x32 # SETM
       ref, 𝕗, 𝕩 = pop!(stack), pop!(stack), pop!(stack)
       # @debug "BYTECODE 32 SETM"
-      value = 𝕗(getv(ref), 𝕩)
-      setu!(ref, value)
+      value = 𝕗(Refs.getv(ref), 𝕩)
+      Refs.setu!(ref, value)
       push!(stack, value)
     elseif instr == 0x33 # SETC
       ref, 𝕗 = pop!(stack), pop!(stack)
       # @debug "BYTECODE 33 SETC"
-      value = 𝕗(none, getv(ref))
-      setu!(ref, value)
+      value = 𝕗(none, Refs.getv(ref))
+      Refs.setu!(ref, value)
       push!(stack, value)
     else
       @error "UNKNOWN BYTECODE 0x$(string(instr, base=16))"
@@ -561,11 +579,11 @@ function run_code(vm::VM, env::Env, pc::Int64)
   end
 end
 
-function run_body(vm::VM, parent::Env, body_idx::Int64, 𝕤, 𝕨, 𝕩, 𝕘, 𝕗)
+function run_body(vm::VM, parent::Frame, body_idx::Int64, 𝕤, 𝕨, 𝕩, 𝕘, 𝕗)
   pc, num_vars = vm.bodies[body_idx + 1]
   # @debug "BODY@$(idx-1) $(num_vars)"
-  vars = Ref[]
-  for _ in 1:num_vars; push!(vars, Ref(nothing)) end
+  vars = Refs.Ref[]
+  for _ in 1:num_vars; push!(vars, Refs.Ref(nothing)) end
   if num_vars >= 1 vars[1].value = 𝕤 end
   if num_vars >= 2 vars[2].value = 𝕩 end
   if num_vars >= 3 vars[3].value = 𝕨 end
@@ -573,21 +591,21 @@ function run_body(vm::VM, parent::Env, body_idx::Int64, 𝕤, 𝕨, 𝕩, 𝕘, 
   # if num_vars >= 4 vars[4].value = 𝕣 end
   if num_vars >= 5 vars[5].value = 𝕗 end
   if num_vars >= 6 vars[6].value = 𝕘 end
-  env = Env(parent, vars)
+  frame = Frame(parent, vars)
   # @info "run_body"
-  run_code(vm, env, pc)
+  run_code(vm, frame, pc)
 end
 
-function run_block_body(vm::VM, env::Env, block, 𝕤, 𝕨, 𝕩, 𝕘, 𝕗)
+function run_block_body(vm::VM, frame::Frame, block, 𝕤, 𝕨, 𝕩, 𝕘, 𝕗)
   body_idx = block[3]
   if isa(body_idx, Int)
-    run_body(vm, env, body_idx, 𝕤, 𝕨, 𝕩, 𝕘, 𝕗)
+    run_body(vm, frame, body_idx, 𝕤, 𝕨, 𝕩, 𝕘, 𝕗)
   elseif isa(body_idx, AbstractArray)
     ret = nothing
     for body in body_idx
       for idx in body
         # TODO: need to check for PRED/SETH failures here
-        ret = run_body(vm, env, idx, 𝕤, 𝕨, 𝕩, 𝕘, 𝕗)
+        ret = run_body(vm, frame, idx, 𝕤, 𝕨, 𝕩, 𝕘, 𝕗)
       end
     end
     @assert ret !== nothing
@@ -595,47 +613,50 @@ function run_block_body(vm::VM, env::Env, block, 𝕤, 𝕨, 𝕩, 𝕘, 𝕗)
   end
 end
 
-function run_block(vm::VM, env::Env, block)
+function run_block(vm::VM, frame::Frame, block)
   typ, imm = block
   if typ == 0 && imm == 1 # immediate
-    run_block_body(vm, env, block, nothing, nothing, nothing, nothing, nothing)
+    run_block_body(vm, frame, block, nothing, nothing, nothing, nothing, nothing)
   elseif typ == 0 && imm == 0 # function
-    F(vm, env, block, nothing, nothing, nothing)
+    F(vm, frame, block, nothing, nothing, nothing)
   elseif typ == 1 && imm == 1 # mod1 immediate
     # @info "mod1 immediate"
     𝕣 = M1(function(𝕨, 𝕩)
-           run_block_body(vm, env, block, 𝕣, 𝕨, 𝕩, nothing, nothing)
+           run_block_body(vm, frame, block, 𝕣, 𝕨, 𝕩, nothing, nothing)
          end)
     𝕣
   elseif typ == 2 && imm == 1 # mod2 immediate
-    𝕣 = M2(function(𝕨, 𝕩) run_block_body(vm, env, block, 𝕣, 𝕨, 𝕩, nothing, nothing) end)
+    𝕣 = M2(function(𝕨, 𝕩) run_block_body(vm, frame, block, 𝕣, 𝕨, 𝕩, nothing, nothing) end)
     𝕣
   elseif typ == 1 && imm == 0 # mod1 deferred
     # @info "mod1 deferred"
     𝕣 = M1(function(𝕘, 𝕗)
-      F(vm, env, block, nothing, 𝕣, 𝕗)
+      F(vm, frame, block, nothing, 𝕣, 𝕗)
     end)
     𝕣
   elseif typ == 2 && imm == 0 # mod2 deferred
     𝕣 = M2(function(𝕘, 𝕗)
-      F(vm, env, block, 𝕘, 𝕣, 𝕗)
+      F(vm, frame, block, 𝕘, 𝕣, 𝕗)
     end)
     𝕣
   end
 end
 
+""" Run compiler bytecode, this is the entry point to VM."""
 function run(src, code, consts, blocks, bodies)
   vm = VM(src, code, consts, blocks, bodies)
-  env = Env(nothing, [])
-  run_block(vm, env, blocks[1])
+  frame = Frame(nothing, [])
+  run_block(vm, frame, blocks[1])
 end
 
+""" Compile the BQN expression using bootstrap compiler."""
 function bqncompile0(code)
     jlsrc = read(`./cjl.bqn $(code)`, String)
     jlcode = eval(Meta.parse(jlsrc))
     return jlcode
 end
 
+""" Compile and run the BQN expression (using bootstrap compiler)."""
 function bqneval0(code)
     jlcode = bqncompile0(code)
     boot = eval(jlcode)
@@ -680,16 +701,16 @@ runtime(n::Int64) = _runtime[n + 1]
 
 function decompose(𝕨, 𝕩)
   kind =
-    if     𝕩 in _runtime;     [0, 𝕩]
+    if     𝕩 in _runtime;                [0, 𝕩]
     elseif isa(𝕩, F) && 𝕩.𝕘 !== nothing; [5, 𝕩.𝕗, 𝕩.𝕣, 𝕩.𝕘]
     elseif isa(𝕩, F) && 𝕩.𝕗 !== nothing; [4, 𝕩.𝕗, 𝕩.𝕣]
     elseif isa(𝕩, F);                    [1, 𝕩]
-    elseif isa(𝕩, TR2D);      [2, 𝕩.h, 𝕩.𝕘]
-    elseif isa(𝕩, TR3D);      [3, 𝕩.𝕘, 𝕩.h, 𝕩.𝕗]
-    elseif isa(𝕩, TR3O);      [3, 𝕩.𝕘, 𝕩.h, 𝕩.𝕗]
-    elseif isa(𝕩, M1);        [4, 𝕩.𝕗, 𝕩]
-    elseif isa(𝕩, M2);        [5, 𝕩.𝕗, 𝕩, 𝕩.𝕘]
-    else                      [-1, 𝕩]
+    elseif isa(𝕩, TR2D);                 [2, 𝕩.h, 𝕩.𝕘]
+    elseif isa(𝕩, TR3D);                 [3, 𝕩.𝕘, 𝕩.h, 𝕩.𝕗]
+    elseif isa(𝕩, TR3O);                 [3, 𝕩.𝕘, 𝕩.h, 𝕩.𝕗]
+    elseif isa(𝕩, M1);                   [4, 𝕩.𝕗, 𝕩]
+    elseif isa(𝕩, M2);                   [5, 𝕩.𝕗, 𝕩, 𝕩.𝕘]
+    else                                 [-1, 𝕩]
     end
   # @info "decompose" 𝕩 kind
   kind
@@ -712,10 +733,12 @@ end
 
 c = run("<none>", C.value...)
 
+""" Compile BQN expression using self-hosted compiler."""
 function bqncompile(src)
   c(_runtime, src)
 end
 
+""" Compile and eval BQN expression (using self-hosted compiler)."""
 function bqneval(src)
   code, consts, blocks, bodies, toks, names = bqncompile(src)
   run(src, code, consts, blocks, bodies)
@@ -723,21 +746,26 @@ end
 
 export bqneval
 
+""" Test suite using the bootstrap compiler."""
 module Tests0
 import ..BQNError, ..bqneval0 as bqneval
 include("./test/test.jl")
 end
 
+""" Test suite using the self hosted compiler."""
 module Tests
 import ..BQNError, ..bqneval
 include("./test/test.jl")
 end
 
+""" REPL mode."""
 module Repl
 using ReplMaker
 import ..bqneval, ..bqneval0
 
 function init()
+  # TODO: now using the bootstrap compiler, switch to bqneval once self-hosted
+  # compiler is fast enough.
   initrepl(bqneval0,
            prompt_text="BQN) ",
            prompt_color=:blue, 
