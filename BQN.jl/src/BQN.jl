@@ -444,15 +444,14 @@ end
 function compile0(code)
   jlsrc = read(`./cjl.bqn $(code)`, String)
   jlcode = eval(Meta.parse(jlsrc))
-  return jlcode
+  return eval(jlcode)
 end
 
 """ Compile and run the BQN expression (using bootstrap compiler)."""
-function bqn0(code)
-  jlcode = compile0(code)
-  boot = eval(jlcode)
+function bqn0(src)
+  code, consts, blocks, bodies = compile0(src)
   # @time run(code, boot...)
-  run(code, boot...)
+  run(src, code, consts, blocks, bodies)
 end
 
 str(s::String) = s
@@ -480,7 +479,7 @@ end
 
 """ Compile and eval BQN expression (using self-hosted compiler)."""
 function bqn(src)
-  code, consts, blocks, bodies, toks, names = bqncompile(src)
+  code, consts, blocks, bodies, toks, names = compile(src)
   run(src, code, consts, blocks, bodies)
 end
 
