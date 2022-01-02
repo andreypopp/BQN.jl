@@ -15,8 +15,9 @@ end
 include("./bytecode.jl")
 include("./simple.jl")
 include("./prim.jl")
-include("./under.jl")
 include("./identity.jl")
+include("./undo.jl")
+include("./under.jl")
 
 function test_all()
   @testset verbose=true begin
@@ -24,6 +25,7 @@ function test_all()
     test_simple()
     test_prim()
     test_identity()
+    test_undo()
     test_under()
   end
   nothing

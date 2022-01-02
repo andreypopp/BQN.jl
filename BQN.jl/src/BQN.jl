@@ -111,6 +111,15 @@ end
 
 Base.show(io::IO, f::F) = show(io, "<BQN function>")
 
+struct FN
+  run::Function
+  𝕘::Union{Any,Nothing}
+  𝕣::Union{Any,Nothing}
+  𝕗::Union{Any,Nothing}
+end
+
+Base.show(io::IO, f::FN) = show(io, "<BQN native function>")
+
 struct TR2D
   h::Any
   𝕘::Any
@@ -147,6 +156,7 @@ Base.show(io::IO, f::M2) = show(io, "<BQN 2-modifier>")
 (𝕤::Bool)(𝕨, 𝕩) = 𝕤
 (𝕤::String)(𝕨, 𝕩) = 𝕤
 (𝕤::F)(𝕨, 𝕩) = run_block_body(𝕤.vm, 𝕤.frame, 𝕤.block, 𝕤, 𝕨, 𝕩, 𝕤.𝕘, 𝕤.𝕗)
+(𝕤::FN)(𝕨, 𝕩) = 𝕤.run(𝕨, 𝕩)
 (𝕤::M1)(𝕨, 𝕩) = 𝕤.run(𝕨, 𝕩)
 (𝕤::M2)(𝕨, 𝕩) = 𝕤.run(𝕨, 𝕩)
 (𝕤::TR2D)(𝕨, 𝕩) = 𝕤.h(none, 𝕤.𝕘(𝕨, 𝕩))
@@ -163,7 +173,7 @@ end
 
 module Runtime
   using Debugger
-  import ..None, ..none, ..F, ..TR2D, ..TR3D, ..TR3O, ..M1, ..M2, ..BQNError
+  import ..None, ..none, ..F, ..FN, ..TR2D, ..TR3D, ..TR3O, ..M1, ..M2, ..BQNError
 
   bqnadd(𝕨::None, 𝕩) = 𝕩
   bqnadd(𝕨, 𝕩) = 𝕨 + 𝕩
@@ -178,7 +188,7 @@ module Runtime
   bqndiv(𝕨::Number, 𝕩::Number) = 𝕨/𝕩
 
   bqnpow(𝕨::None, 𝕩::Number) = ℯ^𝕩
-  bqnpow(𝕨::Number, 𝕩::Number) = 𝕨^𝕩
+  bqnpow(𝕨::Number, 𝕩::Number) = if 𝕩>=0; 𝕨^𝕩 else 1/(𝕨^(-𝕩)) end
 
   bqnroot(root::None, v) = sqrt(v)
   bqnroot(root, v) = v^(1/root)
@@ -200,23 +210,27 @@ module Runtime
   bqnidright(𝕨, 𝕩) = 𝕩
 
   function bqnvalences(𝕘, 𝕗)
-    function (𝕨, 𝕩)
+    𝕣 = bqnvalences
+    run = function (𝕨, 𝕩)
       if 𝕨 === none
         𝕗(𝕨, 𝕩)
       else
         𝕘(𝕨, 𝕩)
       end
     end
+    FN(run, 𝕘, 𝕣, 𝕗)
   end
 
   function bqncatch(𝕘, 𝕗)
-    function (𝕨, 𝕩)
+    𝕣 = bqncatch
+    run = function(𝕨, 𝕩)
       try
         𝕗(𝕨, 𝕩)
       catch e
         𝕘(𝕨, 𝕩)
       end
     end
+    FN(run, 𝕘, 𝕣, 𝕗)
   end
 
   bqneq(𝕨::None, 𝕩::AbstractArray) = ndims(𝕩)
@@ -266,9 +280,10 @@ module Runtime
   bqnwindow(𝕨, 𝕩) = [x for x in 0:(𝕩-1)]
 
   function bqntable(𝕘, 𝕗)
+    𝕣 = bqntable
     # TODO: need to get rid of calls to collect() here, instead need to iterate
     # over graphemes for Strings
-    function(𝕨, 𝕩)
+    run = function(𝕨, 𝕩)
       res =
         if 𝕨 === none
           𝕩 = if !isa(𝕩, AbstractArray); collect(𝕩) else 𝕩 end
@@ -282,10 +297,13 @@ module Runtime
         end
       res
     end
+    FN(run, 𝕘, 𝕣, 𝕗)
   end
 
   function bqnscan(𝕘, 𝕗)
-    function(𝕨, 𝕩::AbstractArray)
+    @assert 𝕘 === nothing
+    𝕣 = bqnscan
+    run = function(𝕨, 𝕩::AbstractArray)
       bqnassert(
                 "`: Argument cannot have rank 0",
                 Int(ndims(𝕩) != 0))
@@ -294,25 +312,24 @@ module Runtime
                 Int(𝕨 == none ||
                     size(𝕨) == () && ndims(𝕩) == 1 ||
                     size(𝕨)[1:1] == size(𝕩)[1:1]))
-      # @debug "PRIMITIVE bqnscan"
-      storage = if 𝕨 == none
+      if 𝕨 == none
         accumulate(𝕗, 𝕩, dims=ndims(𝕩))
       elseif size(𝕨) == ()
         accumulate(𝕗, 𝕩, dims=ndims(𝕩), init=𝕨)
       else
         # Because accumulate() doesn't support init being an array we provide
         # init value by concatenating it over the major dimension with hvncat():
-        storage = hvncat(ndims(𝕩), 𝕨, 𝕩)
-        storage = accumulate(𝕗, storage, dims=ndims(𝕩))
+        ndims𝕩 = ndims(𝕩)
+        𝕩 = hvncat(ndims𝕩, 𝕨, 𝕩)
+        𝕩 = accumulate(𝕗, 𝕩, dims=ndims𝕩)
         # ... but this will produce an extra "row" in this dimension so we
         # produce a view which "cuts" that out with a view over this array:
         # TODO: Revisit that for performance!
-        indices = [(:) for _ in size(storage)[1:end - 1]]
-        storage = @view storage[indices..., 2:end]
-        storage
+        indices = [(:) for _ in size(𝕩)[1:end - 1]]
+        @view 𝕩[indices..., 2:end]
       end
-      storage
     end
+    FN(run, 𝕘, 𝕣, 𝕗)
   end
 
   function bqntype(𝕨::None, 𝕩)
@@ -329,6 +346,7 @@ module Runtime
   bqntype′(𝕨::None, 𝕩::TR3D) = 3
   bqntype′(𝕨::None, 𝕩::TR3O) = 3
   bqntype′(𝕨::None, 𝕩::F) = 3
+  bqntype′(𝕨::None, 𝕩::FN) = 3
   bqntype′(𝕨::None, 𝕩::M1) = 4
   bqntype′(𝕨::None, 𝕩::M2) = 5
 
@@ -378,9 +396,11 @@ module Runtime
   end
 
   function bqnfillby(𝕘, 𝕗)
-    function(𝕨, 𝕩)
+    𝕣 = bqnfillby
+    run = function(𝕨, 𝕩)
       𝕗(𝕨, 𝕩)
     end
+    FN(run, 𝕘, 𝕣, 𝕗)
   end
 end
 
@@ -673,16 +693,19 @@ runtime(n::Int64) = _runtime[n + 1]
 
 function decompose(𝕨, 𝕩)
   kind =
-    if     𝕩 in _runtime;                [0, 𝕩]
-    elseif isa(𝕩, F) && 𝕩.𝕘 !== nothing; [5, 𝕩.𝕗, 𝕩.𝕣, 𝕩.𝕘]
-    elseif isa(𝕩, F) && 𝕩.𝕗 !== nothing; [4, 𝕩.𝕗, 𝕩.𝕣]
-    elseif isa(𝕩, F);                    [1, 𝕩]
-    elseif isa(𝕩, TR2D);                 [2, 𝕩.h, 𝕩.𝕘]
-    elseif isa(𝕩, TR3D);                 [3, 𝕩.𝕘, 𝕩.h, 𝕩.𝕗]
-    elseif isa(𝕩, TR3O);                 [3, 𝕩.𝕘, 𝕩.h, 𝕩.𝕗]
-    elseif isa(𝕩, M1);                   [4, 𝕩.𝕗, 𝕩]
-    elseif isa(𝕩, M2);                   [5, 𝕩.𝕗, 𝕩, 𝕩.𝕘]
-    else                                 [-1, 𝕩]
+    if     𝕩 in _runtime;                 [0, 𝕩]
+    elseif isa(𝕩, F) && 𝕩.𝕘 !== nothing;  [5, 𝕩.𝕗, 𝕩.𝕣, 𝕩.𝕘]
+    elseif isa(𝕩, FN) && 𝕩.𝕘 !== nothing; [5, 𝕩.𝕗, 𝕩.𝕣, 𝕩.𝕘]
+    elseif isa(𝕩, F) && 𝕩.𝕗 !== nothing;  [4, 𝕩.𝕗, 𝕩.𝕣]
+    elseif isa(𝕩, FN) && 𝕩.𝕗 !== nothing; [4, 𝕩.𝕗, 𝕩.𝕣]
+    elseif isa(𝕩, F);                     [1, 𝕩]
+    elseif isa(𝕩, FN);                    [1, 𝕩]
+    elseif isa(𝕩, TR2D);                  [2, 𝕩.h, 𝕩.𝕘]
+    elseif isa(𝕩, TR3D);                  [3, 𝕩.𝕘, 𝕩.h, 𝕩.𝕗]
+    elseif isa(𝕩, TR3O);                  [3, 𝕩.𝕘, 𝕩.h, 𝕩.𝕗]
+    elseif isa(𝕩, M1);                    [4, 𝕩.𝕗, 𝕩]
+    elseif isa(𝕩, M2);                    [5, 𝕩.𝕗, 𝕩, 𝕩.𝕘]
+    else                                  [-1, 𝕩]
     end
   # @info "decompose" 𝕩 kind
   kind
