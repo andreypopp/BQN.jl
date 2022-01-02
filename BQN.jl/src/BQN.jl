@@ -137,17 +137,38 @@ struct TR3O
   𝕗::Any
 end
 
-struct M1
-  run::Function
+struct M1I
+  vm::VM
+  frame::Frame
+  block::Any
 end
 
-Base.show(io::IO, f::M1) = show(io, "<BQN 1-modifier>")
+Base.show(io::IO, f::M1I) = show(io, "<BQN immediate 1-modifier>")
 
-struct M2
-  run::Function
+struct M1D
+  vm::VM
+  frame::Frame
+  block::Any
 end
 
-Base.show(io::IO, f::M2) = show(io, "<BQN 2-modifier>")
+Base.show(io::IO, f::M1D) = show(io, "<BQN deferred 1-modifier>")
+
+struct M2I
+  vm::VM
+  frame::Frame
+  block::Any
+end
+
+Base.show(io::IO, f::M2I) = show(io, "<BQN immediate 2-modifier>")
+
+struct M2D
+  vm::VM
+  frame::Frame
+  block::Any
+end
+
+Base.show(io::IO, f::M2D) = show(io, "<BQN deferred 2-modifier>")
+
 
 (𝕤::AbstractArray)(𝕨, 𝕩) = 𝕤
 (𝕤::Float64)(𝕨, 𝕩) = 𝕤
@@ -157,8 +178,10 @@ Base.show(io::IO, f::M2) = show(io, "<BQN 2-modifier>")
 (𝕤::String)(𝕨, 𝕩) = 𝕤
 (𝕤::F)(𝕨, 𝕩) = run_block_body(𝕤.vm, 𝕤.frame, 𝕤.block, 𝕤, 𝕨, 𝕩, 𝕤.𝕘, 𝕤.𝕗)
 (𝕤::FN)(𝕨, 𝕩) = 𝕤.run(𝕨, 𝕩)
-(𝕤::M1)(𝕨, 𝕩) = 𝕤.run(𝕨, 𝕩)
-(𝕤::M2)(𝕨, 𝕩) = 𝕤.run(𝕨, 𝕩)
+(𝕤::M1I)(𝕨, 𝕩) = run_block_body(𝕤.vm, 𝕤.frame, 𝕤.block, 𝕤, 𝕨, 𝕩, nothing, nothing)
+(𝕣::M1D)(𝕘, 𝕗) = F(𝕣.vm, 𝕣.frame, 𝕣.block, 𝕘, 𝕣, 𝕗)
+(𝕤::M2I)(𝕨, 𝕩) = run_block_body(𝕤.vm, 𝕤.frame, 𝕤.block, 𝕤, 𝕨, 𝕩, nothing, nothing)
+(𝕣::M2D)(𝕘, 𝕗) = F(𝕣.vm, 𝕣.frame, 𝕣.block, 𝕘, 𝕣, 𝕗)
 (𝕤::TR2D)(𝕨, 𝕩) = 𝕤.h(none, 𝕤.𝕘(𝕨, 𝕩))
 function (𝕤::TR3D)(𝕨, 𝕩)
   𝕩´ = 𝕤.𝕗(𝕨, 𝕩)
@@ -173,7 +196,7 @@ end
 
 module Runtime
   using Debugger
-  import ..None, ..none, ..F, ..FN, ..TR2D, ..TR3D, ..TR3O, ..M1, ..M2, ..BQNError
+  import ..None, ..none, ..F, ..FN, ..TR2D, ..TR3D, ..TR3O, ..M1D, ..M1I, ..M2D, ..M2I, ..BQNError
 
   bqnadd(𝕨::None, 𝕩) = 𝕩
   bqnadd(𝕨, 𝕩) = 𝕨 + 𝕩
@@ -211,7 +234,7 @@ module Runtime
 
   function bqnvalences(𝕘, 𝕗)
     𝕣 = bqnvalences
-    run = function (𝕨, 𝕩)
+    run = function(𝕨, 𝕩)
       if 𝕨 === none
         𝕗(𝕨, 𝕩)
       else
@@ -347,8 +370,10 @@ module Runtime
   bqntype′(𝕨::None, 𝕩::TR3O) = 3
   bqntype′(𝕨::None, 𝕩::F) = 3
   bqntype′(𝕨::None, 𝕩::FN) = 3
-  bqntype′(𝕨::None, 𝕩::M1) = 4
-  bqntype′(𝕨::None, 𝕩::M2) = 5
+  bqntype′(𝕨::None, 𝕩::M1D) = 4
+  bqntype′(𝕨::None, 𝕩::M1I) = 4
+  bqntype′(𝕨::None, 𝕩::M2D) = 5
+  bqntype′(𝕨::None, 𝕩::M2I) = 5
 
   bqnfill(𝕨::None, 𝕩::String) = ' '
   bqnfill(𝕨::None, 𝕩::AbstractArray) = 0
@@ -610,25 +635,13 @@ function run_block(vm::VM, frame::Frame, block)
   elseif typ == 0 && imm == 0 # function
     F(vm, frame, block, nothing, nothing, nothing)
   elseif typ == 1 && imm == 1 # mod1 immediate
-    # @info "mod1 immediate"
-    𝕣 = M1(function(𝕨, 𝕩)
-           run_block_body(vm, frame, block, 𝕣, 𝕨, 𝕩, nothing, nothing)
-         end)
-    𝕣
+    M1I(vm, frame, block)
   elseif typ == 2 && imm == 1 # mod2 immediate
-    𝕣 = M2(function(𝕨, 𝕩) run_block_body(vm, frame, block, 𝕣, 𝕨, 𝕩, nothing, nothing) end)
-    𝕣
+    M2I(vm, frame, block)
   elseif typ == 1 && imm == 0 # mod1 deferred
-    # @info "mod1 deferred"
-    𝕣 = M1(function(𝕘, 𝕗)
-      F(vm, frame, block, nothing, 𝕣, 𝕗)
-    end)
-    𝕣
+    M1D(vm, frame, block)
   elseif typ == 2 && imm == 0 # mod2 deferred
-    𝕣 = M2(function(𝕘, 𝕗)
-      F(vm, frame, block, 𝕘, 𝕣, 𝕗)
-    end)
-    𝕣
+    M2D(vm, frame, block)
   end
 end
 
@@ -703,8 +716,6 @@ function decompose(𝕨, 𝕩)
     elseif isa(𝕩, TR2D);                  [2, 𝕩.h, 𝕩.𝕘]
     elseif isa(𝕩, TR3D);                  [3, 𝕩.𝕘, 𝕩.h, 𝕩.𝕗]
     elseif isa(𝕩, TR3O);                  [3, 𝕩.𝕘, 𝕩.h, 𝕩.𝕗]
-    elseif isa(𝕩, M1);                    [4, 𝕩.𝕗, 𝕩]
-    elseif isa(𝕩, M2);                    [5, 𝕩.𝕗, 𝕩, 𝕩.𝕘]
     else                                  [-1, 𝕩]
     end
   # @info "decompose" 𝕩 kind
