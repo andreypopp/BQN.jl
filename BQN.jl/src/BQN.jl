@@ -1,6 +1,7 @@
 module BQN
 using TimerOutputs
 
+const runto = TimerOutput()
 const to = TimerOutput()
 
 """ BQN error."""
@@ -138,6 +139,10 @@ struct TR3O
   𝕗::Any
 end
 
+struct M1N
+  run::Function
+end
+
 struct M1I
   vm::VM
   frame::Frame
@@ -153,6 +158,10 @@ struct M1D
 end
 
 Base.show(io::IO, f::M1D) = show(io, "<BQN deferred 1-modifier>")
+
+struct M2N
+  run::Function
+end
 
 struct M2I
   vm::VM
@@ -179,8 +188,10 @@ Base.show(io::IO, f::M2D) = show(io, "<BQN deferred 2-modifier>")
 (𝕤::String)(𝕨, 𝕩) = 𝕤
 (𝕤::F)(𝕨, 𝕩) = run_block_body(𝕤.vm, 𝕤.frame, 𝕤.block, 𝕤, 𝕨, 𝕩, 𝕤.𝕘, 𝕤.𝕗)
 (𝕤::FN)(𝕨, 𝕩) = 𝕤.run(𝕨, 𝕩)
+(𝕤::M1N)(𝕘::Nothing, 𝕗) = 𝕤.run(𝕘, 𝕗)
 (𝕤::M1I)(𝕨, 𝕩) = run_block_body(𝕤.vm, 𝕤.frame, 𝕤.block, 𝕤, 𝕨, 𝕩, nothing, nothing)
 (𝕣::M1D)(𝕘, 𝕗) = F(𝕣.vm, 𝕣.frame, 𝕣.block, 𝕘, 𝕣, 𝕗)
+(𝕤::M2N)(𝕘, 𝕗) = 𝕤.run(𝕘, 𝕗)
 (𝕤::M2I)(𝕨, 𝕩) = run_block_body(𝕤.vm, 𝕤.frame, 𝕤.block, 𝕤, 𝕨, 𝕩, nothing, nothing)
 (𝕣::M2D)(𝕘, 𝕗) = F(𝕣.vm, 𝕣.frame, 𝕣.block, 𝕘, 𝕣, 𝕗)
 (𝕤::TR2D)(𝕨, 𝕩) = 𝕤.h(none, 𝕤.𝕘(𝕨, 𝕩))
@@ -396,7 +407,7 @@ function run_body(vm::VM, parent::Frame, body_idx::Int64, 𝕤, 𝕨, 𝕩, 𝕘
   if num_vars >= 5 vars[5].value = 𝕗 end
   if num_vars >= 6 vars[6].value = 𝕘 end
   frame = Frame(parent, vars)
-  @timeit_debug to string("run_code", body_idx) run_code(vm, frame, pc)
+  run_code(vm, frame, pc)
 end
 
 function run_block_body(vm::VM, frame::Frame, block, 𝕤, 𝕨, 𝕩, 𝕘, 𝕗)
@@ -449,9 +460,9 @@ end
 
 """ Compile and run the BQN expression (using bootstrap compiler)."""
 function bqn0(src)
-  code, consts, blocks, bodies = compile0(src)
+  code, consts, blocks, bodies = @timeit_debug runto "compile0" compile0(src)
   # @time run(code, boot...)
-  run(src, code, consts, blocks, bodies)
+  @timeit_debug runto "run0" run(src, code, consts, blocks, bodies)
 end
 
 str(s::String) = s
@@ -479,8 +490,8 @@ end
 
 """ Compile and eval BQN expression (using self-hosted compiler)."""
 function bqn(src)
-  code, consts, blocks, bodies, toks, names = compile(src)
-  run(src, code, consts, blocks, bodies)
+  code, consts, blocks, bodies, toks, names = @timeit_debug runto "compile" compile(src)
+  @timeit_debug runto "run" run(src, code, consts, blocks, bodies)
 end
 
 """ Test suite using the bootstrap compiler."""

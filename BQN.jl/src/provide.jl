@@ -4,7 +4,8 @@ module Provide
 using TimerOutputs
 
 import ..none, ..None, ..BQNError
-import ..F, ..FN, ..TR2D, ..TR3D, ..TR3O, ..M1D, ..M1I, ..M2D, ..M2I
+import ..F, ..FN, ..TR2D, ..TR3D, ..TR3O
+import ..M1D, ..M1I, ..M1N, ..M2D, ..M2I, ..M2N
 
 const to = TimerOutput()
 
@@ -192,8 +193,10 @@ bqntype′(𝕨::None, 𝕩::TR3D) = 3
 bqntype′(𝕨::None, 𝕩::TR3O) = 3
 bqntype′(𝕨::None, 𝕩::F) = 3
 bqntype′(𝕨::None, 𝕩::FN) = 3
+bqntype′(𝕨::None, 𝕩::M1N) = 4
 bqntype′(𝕨::None, 𝕩::M1D) = 4
 bqntype′(𝕨::None, 𝕩::M1I) = 4
+bqntype′(𝕨::None, 𝕩::M2N) = 5
 bqntype′(𝕨::None, 𝕩::M2D) = 5
 bqntype′(𝕨::None, 𝕩::M2I) = 5
 
