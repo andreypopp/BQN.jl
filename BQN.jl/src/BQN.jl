@@ -398,7 +398,7 @@ end
 function run_body(vm::VM, parent::Frame, body_idx::Int64, 𝕤, 𝕨, 𝕩, 𝕘, 𝕗)
   pc, num_vars = vm.bodies[body_idx + 1]
   vars = Refs.Ref[]
-  sizehint!(vars, num_vars)
+  sizehint!(vars, Int(num_vars))
   for _ in 1:num_vars; push!(vars, Refs.Ref(nothing)) end
   if num_vars >= 1 vars[1].value = 𝕤 end
   if num_vars >= 2 vars[2].value = 𝕩 end

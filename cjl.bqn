@@ -17,7 +17,7 @@ Esc←{
 Str ← "str("""∾Esc∾""")"˜     # A BQN string
 Char ← "'"(∾∾⊣)Esc∘⥊          # A BQN character
 F ← •Repr                     # Native format
-FP ← ∞⊸=◶⟨F,"Inf"⟩            # Format positive number
+FP ← ∞⊸=◶⟨∾⟜".0"⍟(¬·∨´".e"⊸∊)F,"Inf"⟩ # Format positive number
 Num ← 0⊸≤◶⟨"-"∾FP∘|,FP⟩       # Format number
 
 glyphs ← •Import "BQN/src/glyphs.bqn"
