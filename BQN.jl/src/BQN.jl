@@ -1,8 +1,9 @@
 module BQN
-using TimerOutputs
+import TimerOutputs
+import TimerOutputs: @timeit_debug
 
-const runto = TimerOutput()
-const to = TimerOutput()
+const runto = TimerOutputs.TimerOutput()
+const to = TimerOutputs.TimerOutput()
 
 """ BQN error."""
 struct BQNError <: Exception
@@ -485,7 +486,7 @@ c = run("<none>", C.value...)
 
 """ Compile BQN expression using self-hosted compiler."""
 function compile(src)
-  c(_runtime, src)
+  c(Runtime.value, src)
 end
 
 """ Compile and eval BQN expression (using self-hosted compiler)."""
@@ -523,6 +524,23 @@ function init()
            mode_name="BQN")
   nothing
 end
+end
+
+""" Reset all performance timers."""
+function reset_timers!()
+  TimerOutputs.reset_timer!(to)
+  TimerOutputs.reset_timer!(runto)
+  TimerOutputs.reset_timer!(Provide.to)
+  TimerOutputs.reset_timer!(Runtime0.to)
+  nothing
+end
+
+""" Enable performance timers."""
+function enable_timers!()
+  TimerOutputs.enable_debug_timings(BQN)
+  TimerOutputs.enable_debug_timings(BQN.Provide)
+  TimerOutputs.enable_debug_timings(BQN.Runtime0)
+  nothing
 end
 
 export bqn, bqn0
