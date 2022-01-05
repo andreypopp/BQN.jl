@@ -130,18 +130,16 @@ function bqntable(𝕘, 𝕗)
   # over graphemes for Strings
   run = function(𝕨, 𝕩)
     @timeit_debug to "bqntable" begin
-    res =
       if 𝕨 === none
         𝕩 = if !isa(𝕩, AbstractArray); collect(𝕩) else 𝕩 end
-        [𝕗(none, x) for x in 𝕩]
+        [@notimeit(𝕗(none, x)) for x in 𝕩]
       else
         𝕨 = if !isa(𝕨, AbstractArray); collect(𝕨) else 𝕨 end
         𝕩 = if !isa(𝕩, AbstractArray); collect(𝕩) else 𝕩 end
         rsize = (size(𝕩)..., size(𝕨)...)
-        r = [𝕗(w, x) for w in 𝕨 for x in 𝕩]
+        r = [@notimeit(𝕗(w, x)) for w in 𝕨 for x in 𝕩]
         reshape(r, rsize)
       end
-    res
     end
   end
   FN(run, 𝕘, 𝕣, 𝕗)
@@ -246,7 +244,11 @@ function bqnassert(𝕨, 𝕩)
   else
     # TODO: should we use 𝕩 as error message in case it's a string? r1.bqn
     # seems to be relying on that behaviour... see !∘"msg" pattern.
-    msg = 𝕨 === none ? (isa(𝕩, String) ? 𝕩 : "ERROR") : 𝕨
+    msg =
+      if 𝕨 === none
+        if isa(𝕩, String) || isa(𝕩, Vector{Char}); 𝕩
+        else "ERROR" end
+      else 𝕨 end
     if isa(msg, AbstractArray); msg = join(msg) end
     throw(BQNError(msg))
   end
