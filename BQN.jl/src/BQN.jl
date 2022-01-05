@@ -532,6 +532,7 @@ function reset_timers!()
   TimerOutputs.reset_timer!(runto)
   TimerOutputs.reset_timer!(Provide.to)
   TimerOutputs.reset_timer!(Runtime0.to)
+  TimerOutputs.reset_timer!(Runtime.to)
   nothing
 end
 
@@ -540,9 +541,14 @@ function enable_timers!()
   TimerOutputs.enable_debug_timings(BQN)
   TimerOutputs.enable_debug_timings(BQN.Provide)
   TimerOutputs.enable_debug_timings(BQN.Runtime0)
+  TimerOutputs.enable_debug_timings(BQN.Runtime)
   nothing
 end
 
+macro bqn_str(src); bqn(src) end
+macro bqn0_str(src); bqn0(src) end
+
 export bqn, bqn0
+export @bqn_str, @bqn0_str
 
 end
