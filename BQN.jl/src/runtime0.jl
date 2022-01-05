@@ -32,10 +32,11 @@ names = ['⌊' => "bqnmin",
          '◶' => "bqnchoose",
          '⍟' => "bqnrepeat"]
 
-indices = Dict{String, Int}()
+const indices = Dict{String, Int}(name.second => idx
+                                  for (idx, name) in enumerate(names))
 
 # If we want to use r0.bqn as the 0-runtime
-use_r0 = false
+const use_r0 = false
 
 module R0
 import ....provide, ....str, ..use_r0
@@ -44,12 +45,12 @@ if use_r0
 end
 end
 
-value = if use_r0
+const value = if use_r0
   value = run("<none>", R0.value...)
   # define r0 versions as with 0 suffix
   for (idx, name) in enumerate(names)
     name = Symbol("$(name.second)0")
-    eval(quote $(name) = $(value[idx]) end)
+    eval(quote const $(name) = $(value[idx]) end)
   end
   value
 else
@@ -65,15 +66,6 @@ function set_override(func::Any; name=nothing)
 end
 set_override(func::M1N) = set_override(func, name=string(Symbol(func.run)))
 set_override(func::M2N) = set_override(func, name=string(Symbol(func.run)))
-
-# define r0 names with prime, so we can refer to them in overrides
-for (idx, name) in enumerate(names)
-  indices[name.second] = idx
-  if use_r0
-  name = Symbol("$(name.second)0")
-  eval(quote       $(name) = $(value[idx]) end)
-  end
-end
 
 # ⌊ bqnmin floor
 bqnmin(𝕨::None, 𝕩::Number) = @timeit_debug to "bqnminM" floor(𝕩)
