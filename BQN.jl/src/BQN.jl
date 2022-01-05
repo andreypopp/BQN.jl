@@ -1,6 +1,6 @@
 module BQN
 import TimerOutputs
-import TimerOutputs: @timeit_debug
+import TimerOutputs: @timeit_debug, @notimeit
 
 const runto = TimerOutputs.TimerOutput()
 const to = TimerOutputs.TimerOutput()
@@ -221,7 +221,7 @@ function run_code(vm::VM, frame::Frame, pc::Int64)
       @timeit_debug to "DFND" begin
       pc += 1
       block = vm.blocks[vm.code[pc + 1] + 1]
-      push!(stack, run_block(vm, frame, block))
+      push!(stack, @notimeit run_block(vm, frame, block))
       end
     elseif instr == 0x06 # POPS
       @timeit_debug to "POPS" begin
@@ -269,20 +269,20 @@ function run_code(vm::VM, frame::Frame, pc::Int64)
     elseif instr == 0x10 # FN1C
       @timeit_debug to "FN1C" begin
       s, x = pop!(stack), pop!(stack)
-      v = s(none, x)
+      v = @notimeit s(none, x)
       push!(stack, v)
       end
     elseif instr == 0x11 # FN2C
       @timeit_debug to "FN2C" begin
       w, s, x = pop!(stack), pop!(stack), pop!(stack)
-      v = s(w, x)
+      v = @notimeit s(w, x)
       push!(stack, v)
       end
     elseif instr == 0x12 # FN1O
       @timeit_debug to "FN10" begin
       s, x = pop!(stack), pop!(stack)
       if x !== none
-        v = s(none, x)
+        v = @notimeit s(none, x)
         push!(stack, v)
       else
         push!(stack, none)
@@ -292,7 +292,7 @@ function run_code(vm::VM, frame::Frame, pc::Int64)
       @timeit_debug to "FN20" begin
       w, s, x = pop!(stack), pop!(stack), pop!(stack)
       if x !== none
-        v = s(w, x)
+        v = @notimeit s(w, x)
         push!(stack, v)
       else
         push!(stack, none)
@@ -316,12 +316,12 @@ function run_code(vm::VM, frame::Frame, pc::Int64)
     elseif instr == 0x1A # MD1C
       @timeit_debug to "MD1C" begin
       f, r = pop!(stack), pop!(stack)
-      push!(stack, r(nothing, f))
+      push!(stack, @notimeit r(nothing, f))
       end
     elseif instr == 0x1B # MD2C
       @timeit_debug to "MD2C" begin
       f, r, g = pop!(stack), pop!(stack), pop!(stack)
-      push!(stack, r(g, f))
+      push!(stack, @notimeit r(g, f))
       end
     elseif instr == 0x20 # VARO
       @timeit_debug to "VARO" begin
@@ -376,14 +376,14 @@ function run_code(vm::VM, frame::Frame, pc::Int64)
     elseif instr == 0x32 # SETM
       @timeit_debug to "SETM" begin
       ref, 𝕗, 𝕩 = pop!(stack), pop!(stack), pop!(stack)
-      value = 𝕗(Refs.getv(ref), 𝕩)
+      value = @notimeit 𝕗(Refs.getv(ref), 𝕩)
       Refs.setu!(ref, value)
       push!(stack, value)
       end
     elseif instr == 0x33 # SETC
       @timeit_debug to "SETC" begin
       ref, 𝕗 = pop!(stack), pop!(stack)
-      value = 𝕗(none, Refs.getv(ref))
+      value = @notimeit 𝕗(none, Refs.getv(ref))
       Refs.setu!(ref, value)
       push!(stack, value)
       end
