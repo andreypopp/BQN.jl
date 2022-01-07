@@ -179,17 +179,17 @@ set_override(bqnpair)
 
 # ↑ bqntake
 bqntake(𝕨::Number, 𝕩::AbstractArray) =
-  @timeit_debug "bqntake" @view 𝕩[1:Int(𝕨)]
+  @timeit_debug "bqntake" 𝕩[1:Int(𝕨)]
 bqntake(𝕨::Number, 𝕩::AbstractString) =
-  @timeit_debug "bqntake" @view 𝕩[1:Int(𝕨)]
+  @timeit_debug "bqntake" 𝕩[1:Int(𝕨)]
 
 set_override(bqntake)
 
 # ↓ bqndrop
 bqndrop(𝕨::Number, 𝕩::AbstractArray) =
-  @timeit_debug "bqndrop" @view 𝕩[Int(𝕨)+1:end]
+  @timeit_debug "bqndrop" 𝕩[Int(𝕨)+1:end]
 bqndrop(𝕨::Number, 𝕩::AbstractString) =
-  @timeit_debug "bqndrop" @view 𝕩[Int(𝕨)+1:end]
+  @timeit_debug "bqndrop" 𝕩[Int(𝕨)+1:end]
 
 set_override(bqndrop)
 

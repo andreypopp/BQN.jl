@@ -353,7 +353,7 @@ bqnselect(𝕨::AbstractArray, 𝕩::AbstractArray) = begin
         @inbounds inds[dim𝕩] = (:)
       end
     end
-    view(𝕩, inds...)
+    getindex(𝕩, inds...)
   else
     selectdim(𝕩, ndims𝕩, makeidx.(𝕨, length(size𝕩), Ref(size𝕩)))
   end
@@ -517,8 +517,8 @@ end
 
 bqndropone(𝕨::Int, 𝕩::AbstractArray) =
   if 𝕨 == 0; 𝕩
-  elseif 𝕨 > 0; @view 𝕩[𝕨+1:end]
-  else @view 𝕩[1:end+𝕨] end
+  elseif 𝕨 > 0; 𝕩[𝕨+1:end]
+  else 𝕩[1:end+𝕨] end
 
 set_override(bqndrop)
 
