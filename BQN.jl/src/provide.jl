@@ -71,7 +71,7 @@ function bqncatch(𝕘, 𝕗)
 end
 
 bqneq(𝕨::None, 𝕩::AbstractArray) = @timeit_debug to "bqneqM" ndims(𝕩)
-bqneq(𝕨::None, 𝕩::String) = 1
+bqneq(𝕨::None, 𝕩::AbstractString) = 1
 bqneq(𝕨::None, 𝕩) = 0
 bqneq(𝕨, 𝕩) = @timeit_debug to "bqneq" Int(𝕨 == 𝕩)
 
@@ -80,11 +80,11 @@ bqnlte(𝕨::Number, 𝕩::Char) = 1
 bqnlte(𝕨::Char, 𝕩::Number) = 0
 
 bqnshape(𝕨, 𝕩::AbstractArray) = @timeit_debug to "bqnshape" reverse([x for x in size(𝕩)])
-bqnshape(𝕨, 𝕩::String) = @timeit_debug to "bqnshape" Int[length(𝕩)]
+bqnshape(𝕨, 𝕩::AbstractString) = @timeit_debug to "bqnshape" Int[length(𝕩)]
 bqnshape(𝕨, 𝕩) = @timeit_debug to "bqnshape" []
 
 bqndeshape(𝕨::None, 𝕩::AbstractArray) = @timeit_debug to "bqndeshapeM" vec(𝕩)
-bqndeshape(𝕨::None, 𝕩::String) = 𝕩
+bqndeshape(𝕨::None, 𝕩::AbstractString) = 𝕩
 bqndeshape(𝕨::None, 𝕩) = @timeit_debug to "bqndeshapeM" [𝕩]
 
 function bqndeshape(𝕨::AbstractArray, 𝕩::AbstractArray)
@@ -95,7 +95,7 @@ function bqndeshape(𝕨::AbstractArray, 𝕩::AbstractArray)
   end
 end
 
-function bqndeshape(𝕨::AbstractArray, 𝕩::String)
+function bqndeshape(𝕨::AbstractArray, 𝕩::AbstractString)
   @timeit_debug to "bqndeshape" begin
   𝕩 = collect(𝕩)
   bqndeshape(𝕨, 𝕩)
@@ -118,8 +118,8 @@ function bqnpick(𝕨::Int64, 𝕩::AbstractArray)
 end
 bqnpick(𝕨::None, 𝕩::AbstractArray) = bqnpick(0, 𝕩)
 # TODO: get rid of collect, this is slow!
-bqnpick(𝕨::Number, 𝕩::String) = bqnpick(𝕨, collect(𝕩))
-bqnpick(𝕨::None, 𝕩::String) = bqnpick(0, collect(𝕩))
+bqnpick(𝕨::Number, 𝕩::AbstractString) = bqnpick(𝕨, collect(𝕩))
+bqnpick(𝕨::None, 𝕩::AbstractString) = bqnpick(0, collect(𝕩))
 bqnpick(𝕨::None, 𝕩) = 𝕩
 
 bqnwindow(𝕨, 𝕩) = @timeit_debug to "bqnwindow" [x for x in 0:(𝕩-1)]
@@ -185,7 +185,7 @@ function bqntype(𝕨::None, 𝕩)
   type
 end
 bqntype′(𝕨::None, 𝕩::AbstractArray) = 0
-bqntype′(𝕨::None, 𝕩::String) = 0
+bqntype′(𝕨::None, 𝕩::AbstractString) = 0
 bqntype′(𝕨::None, 𝕩::Number) = 1
 bqntype′(𝕨::None, 𝕩::Char) = 2
 bqntype′(𝕨::None, 𝕩::Function) = 3
@@ -201,7 +201,7 @@ bqntype′(𝕨::None, 𝕩::M2N) = 5
 bqntype′(𝕨::None, 𝕩::M2D) = 5
 bqntype′(𝕨::None, 𝕩::M2I) = 5
 
-bqnfill(𝕨::None, 𝕩::String) = ' '
+bqnfill(𝕨::None, 𝕩::AbstractString) = ' '
 bqnfill(𝕨::None, 𝕩::AbstractArray) = 0
 bqnfill(𝕨, 𝕩) = 𝕩
 
@@ -246,7 +246,7 @@ function bqnassert(𝕨, 𝕩)
     # seems to be relying on that behaviour... see !∘"msg" pattern.
     msg =
       if 𝕨 === none
-        if isa(𝕩, String) || isa(𝕩, Vector{Char}); 𝕩
+        if isa(𝕩, AbstractString) || isa(𝕩, Vector); 𝕩
         else "ERROR" end
       else 𝕨 end
     if isa(msg, AbstractArray); msg = join(msg) end

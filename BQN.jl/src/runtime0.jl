@@ -164,9 +164,9 @@ set_override(bqnleft)
 
 # ∾ bqnjoin
 bqnjoin(𝕨::AbstractArray, 𝕩::AbstractArray) = @timeit_debug "bqnjoin" vcat(𝕨, 𝕩)
-bqnjoin(𝕨::String, 𝕩::String) = @timeit_debug "bqnjoin" string(𝕨, 𝕩)
-bqnjoin(𝕨::String, 𝕩::AbstractArray) = @timeit_debug "bqnjoin" vcat(collect(𝕨), 𝕩)
-bqnjoin(𝕨::AbstractArray, 𝕩::String) = @timeit_debug "bqnjoin" vcat(𝕨, collect(𝕩))
+bqnjoin(𝕨::AbstractString, 𝕩::AbstractString) = @timeit_debug "bqnjoin" string(𝕨, 𝕩)
+bqnjoin(𝕨::AbstractString, 𝕩::AbstractArray) = @timeit_debug "bqnjoin" vcat(collect(𝕨), 𝕩)
+bqnjoin(𝕨::AbstractArray, 𝕩::AbstractString) = @timeit_debug "bqnjoin" vcat(𝕨, collect(𝕩))
 
 set_override(bqnjoin)
 
@@ -178,14 +178,18 @@ bqnpair(𝕨, 𝕩) = [𝕨, 𝕩]
 set_override(bqnpair)
 
 # ↑ bqntake
-bqntake(𝕨::Number, 𝕩::AbstractArray) = @timeit_debug "bqntake" 𝕩[1:Int(𝕨)]
-bqntake(𝕨::Number, 𝕩::String) = @timeit_debug "bqntake" 𝕩[1:Int(𝕨)]
+bqntake(𝕨::Number, 𝕩::AbstractArray) =
+  @timeit_debug "bqntake" @view 𝕩[1:Int(𝕨)]
+bqntake(𝕨::Number, 𝕩::AbstractString) =
+  @timeit_debug "bqntake" @view 𝕩[1:Int(𝕨)]
 
 set_override(bqntake)
 
 # ↓ bqndrop
-bqndrop(𝕨::Number, 𝕩::AbstractArray) = @timeit_debug "bqndrop" 𝕩[Int(𝕨)+1:end]
-bqndrop(𝕨::Number, 𝕩::String) = @timeit_debug "bqndrop" 𝕩[Int(𝕨)+1:end]
+bqndrop(𝕨::Number, 𝕩::AbstractArray) =
+  @timeit_debug "bqndrop" @view 𝕩[Int(𝕨)+1:end]
+bqndrop(𝕨::Number, 𝕩::AbstractString) =
+  @timeit_debug "bqndrop" @view 𝕩[Int(𝕨)+1:end]
 
 set_override(bqndrop)
 
@@ -194,51 +198,75 @@ bqnselect(𝕨::AbstractArray{Int}, 𝕩::AbstractArray) =
   @timeit_debug "bqnselect" selectdim(𝕩, ndims(𝕩), 𝕨 .+ 1)
 bqnselect(𝕨::AbstractArray, 𝕩::AbstractArray) =
   bqnselect(map(Int, 𝕨), 𝕩)
-bqnselect(𝕨::AbstractArray, 𝕩::String) =
+bqnselect(𝕨::AbstractArray, 𝕩::AbstractString) =
   bqnselect(𝕨, collect(𝕩))
 
 set_override(bqnselect)
 
 # ˙ bqnconst
-bqnconst(𝕘::Nothing, 𝕗) = begin
-  𝕗′ = (_, _) -> 𝕗
-  # TODO: M1N(...) should be pre-allocated
-  FN(𝕗′,𝕘, M1N(bqnconst), 𝕗)
+bqnconst(𝕘::Nothing, 𝕗) = FNConst(bqnconst′, 𝕗)
+bqnconst′ = M1N(bqnconst)
+
+struct FNConst
+  𝕣::M1N
+  𝕗::Any
 end
 
-set_override(M1N(bqnconst))
+(𝕣::FNConst)(𝕨, 𝕩) = 𝕣.𝕗
+
+Provide.bqntype′(𝕨::None, 𝕩::FNConst) = 3
+
+set_override(bqnconst′)
 
 # ˜ bqnswap
-bqnswap(𝕘::Nothing, 𝕗) = begin
-  𝕗′ = (𝕨, 𝕩) -> @timeit_debug "bqnswap" 𝕨 == none ? 𝕗(𝕩, 𝕩) : 𝕗(𝕩, 𝕨)
-  # TODO: M1N(...) should be pre-allocated
-  FN(𝕗′, 𝕘, M1N(bqnswap), 𝕗)
+bqnswap(𝕘::Nothing, 𝕗) = FNSwap(bqnswap′, 𝕗)
+bqnswap′ = M1N(bqnswap)
+
+struct FNSwap
+  𝕣::M1N
+  𝕗::Any
 end
 
-set_override(M1N(bqnswap))
+(𝕣::FNSwap)(𝕨::None, 𝕩) = 𝕣.𝕗(𝕩, 𝕩)
+(𝕣::FNSwap)(𝕨, 𝕩) = 𝕣.𝕗(𝕩, 𝕨)
+
+Provide.bqntype′(𝕨::None, 𝕩::FNSwap) = 3
+
+set_override(bqnswap′)
 
 # ¨ bqneach
-bqneach(𝕘::Nothing, 𝕗) = begin
-  𝕗′ = (𝕨, 𝕩) -> @timeit_debug "bqneach" bqneach′′(𝕗, 𝕨, 𝕩)
-  # TODO: M1N(...) should be pre-allocated
-  FN(𝕗′, 𝕘, M1N(bqneach), 𝕗)
+bqneach(𝕘::Nothing, 𝕗) = FNEach(bqneach′, 𝕗)
+bqneach′ = M1N(bqneach)
+
+struct FNEach
+  𝕣::M1N
+  𝕗::Any
 end
 
-bqneach′′(𝕗, 𝕨::AbstractArray, 𝕩::AbstractArray) = 𝕗.(𝕨, 𝕩)
-bqneach′′(𝕗, 𝕨::String, 𝕩::String) = bqneach′′(𝕗, collect(𝕨), collect(𝕩))
-bqneach′′(𝕗, 𝕨::String, 𝕩::AbstractArray) = bqneach′′(𝕗, collect(𝕨), 𝕩)
-bqneach′′(𝕗, 𝕨::AbstractArray, 𝕩::String) = bqneach′′(𝕗, 𝕨, collect(𝕩))
+(𝕣::FNEach)(𝕨::AbstractArray, 𝕩::AbstractArray) = 𝕣.𝕗.(𝕨, 𝕩)
+(𝕣::FNEach)(𝕨::AbstractString, 𝕩::AbstractString) = 𝕣.𝕗.(collect(𝕨), collect(𝕩))
+(𝕣::FNEach)(𝕨::AbstractArray, 𝕩::AbstractString) = 𝕣.𝕗.(𝕨, collect(𝕩))
+(𝕣::FNEach)(𝕨::AbstractString, 𝕩::AbstractArray) = 𝕣.𝕗.(collect(𝕨), 𝕩)
 
-set_override(M1N(bqneach))
+Provide.bqntype′(𝕨::None, 𝕩::FNEach) = 3
+
+set_override(bqneach′)
 
 # ´ bqnfold
-bqnfold(𝕘::Nothing, 𝕗) = begin
-  𝕗′ = (𝕨, 𝕩) -> @timeit_debug "bqnfold" 𝕨 == none ? foldr(𝕗, 𝕩) : foldr(𝕗, 𝕩, init=𝕨)
-  # TODO: M1N(...) should be pre-allocated
-  FN(𝕗′, 𝕘, M1N(bqnfold), 𝕗)
+bqnfold(𝕘::Nothing, 𝕗) = FNFold(bqnfold′, 𝕗)
+bqnfold′ = M1N(bqnfold)
+
+struct FNFold
+  𝕣::M1N
+  𝕗::Any
 end
 
-set_override(M1N(bqnfold))
+(𝕣::FNFold)(𝕨::None, 𝕩) = foldr(𝕣.𝕗, 𝕩)
+(𝕣::FNFold)(𝕨, 𝕩) = foldr(𝕣.𝕗, 𝕩, init=𝕨)
+
+Provide.bqntype′(𝕨::None, 𝕩::FNFold) = 3
+
+set_override(bqnfold′)
 
 # ∘ bqnatop
 bqnatop(𝕘, 𝕗) = @timeit_debug to "bqnatop" FNAtop(𝕘, bqnatop′, 𝕗)
