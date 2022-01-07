@@ -466,7 +466,7 @@ function bqn0(src)
   @timeit_debug runto "run0" run(src, code, consts, blocks, bodies)
 end
 
-str(s::String) = s
+str(s::String) = collect(s)
 
 include("./provide.jl")
 using .Provide
@@ -532,7 +532,7 @@ function reset_timers!()
   TimerOutputs.reset_timer!(runto)
   TimerOutputs.reset_timer!(Provide.to)
   TimerOutputs.reset_timer!(Runtime0.to)
-  # TimerOutputs.reset_timer!(Runtime.to)
+  TimerOutputs.reset_timer!(Runtime.to)
   nothing
 end
 
@@ -541,7 +541,7 @@ function enable_timers!()
   TimerOutputs.enable_debug_timings(BQN)
   TimerOutputs.enable_debug_timings(BQN.Provide)
   TimerOutputs.enable_debug_timings(BQN.Runtime0)
-  # TimerOutputs.enable_debug_timings(BQN.Runtime)
+  TimerOutputs.enable_debug_timings(BQN.Runtime)
   nothing
 end
 
