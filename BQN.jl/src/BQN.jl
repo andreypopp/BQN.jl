@@ -214,13 +214,13 @@ function run_code(vm::VM, frame::Frame, pc::Int64)
     if instr == 0x00 # PUSH
       @timeit_debug to "PUSH" begin
       pc += 1
-      v = vm.consts[vm.code[pc + 1] + 1]
+      @inbounds v = vm.consts[vm.code[pc + 1] + 1]
       push!(stack, v)
       end
     elseif instr == 0x01 # DFND
       @timeit_debug to "DFND" begin
       pc += 1
-      block = vm.blocks[vm.code[pc + 1] + 1]
+      @inbounds block = vm.blocks[vm.code[pc + 1] + 1]
       push!(stack, @notimeit run_block(vm, frame, block))
       end
     elseif instr == 0x06 # POPS
@@ -234,7 +234,7 @@ function run_code(vm::VM, frame::Frame, pc::Int64)
     elseif instr == 0x0B # ARRO
       @timeit_debug to "ARRO" begin
       pc += 1
-      n = vm.code[pc + 1]
+      @inbounds n = vm.code[pc + 1]
       # try to "infer" the type
       # TODO: benchmark if it helps...
       T = if n > 0
@@ -259,7 +259,7 @@ function run_code(vm::VM, frame::Frame, pc::Int64)
     elseif instr == 0x0C # ARRM
       @timeit_debug to "ARRM" begin
       pc += 1
-      n = vm.code[pc + 1]
+      @inbounds n = vm.code[pc + 1]
       v = Refs.RefList(Int(n))
       for i in 1:n
         push!(v.refs, popat!(stack, Int(length(stack) - n + i)))
@@ -326,34 +326,34 @@ function run_code(vm::VM, frame::Frame, pc::Int64)
     elseif instr == 0x20 # VARO
       @timeit_debug to "VARO" begin
       pc += 1
-      d = vm.code[pc + 1]
+      @inbounds d = vm.code[pc + 1]
       pc += 1
-      i = vm.code[pc + 1]
+      @inbounds i = vm.code[pc + 1]
       cenv = frame
       while d > 0; cenv = cenv.parent; d -= 1 end
-      ref = cenv.vars[i + 1]
+      @inbounds ref = cenv.vars[i + 1]
       push!(stack, Refs.getv(ref))
       end
     elseif instr == 0x21 # VARM
       @timeit_debug to "VARM" begin
       pc += 1
-      d = vm.code[pc + 1]
+      @inbounds d = vm.code[pc + 1]
       pc += 1
-      i = vm.code[pc + 1]
+      @inbounds i = vm.code[pc + 1]
       cenv = frame
       while d > 0; cenv = cenv.parent; d -= 1 end
-      ref = cenv.vars[i + 1]
+      @inbounds ref = cenv.vars[i + 1]
       push!(stack, ref)
       end
     elseif instr == 0x22 # VARU
       @timeit_debug to "VARU" begin
       pc += 1
-      d = vm.code[pc + 1]
+      @inbounds d = vm.code[pc + 1]
       pc += 1
-      i = vm.code[pc + 1]
+      @inbounds i = vm.code[pc + 1]
       cenv = frame
       while d > 0; cenv = cenv.parent; d -= 1 end
-      ref = cenv.vars[i + 1]
+      @inbounds ref = cenv.vars[i + 1]
       # TODO: need to clear the ref
       push!(stack, Refs.getv(ref))
       end
@@ -396,7 +396,7 @@ function run_code(vm::VM, frame::Frame, pc::Int64)
 end
 
 function run_body(vm::VM, parent::Frame, body_idx::Int64, 𝕤, 𝕨, 𝕩, 𝕘, 𝕗)
-  pc, num_vars = vm.bodies[body_idx + 1]
+  @inbounds pc, num_vars = vm.bodies[body_idx + 1]
   vars = Refs.Ref[]
   sizehint!(vars, Int(num_vars))
   for _ in 1:num_vars; push!(vars, Refs.Ref(nothing)) end
