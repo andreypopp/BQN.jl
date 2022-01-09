@@ -180,6 +180,21 @@ end
 
 Base.show(io::IO, f::M2D) = show(io, "<BQN deferred 2-modifier>")
 
+type(𝕨::None, 𝕩::AbstractArray) = 0.0
+type(𝕨::None, 𝕩::Number) = 1.0
+type(𝕨::None, 𝕩::Char) = 2.0
+type(𝕨::None, 𝕩::Function) = 3.0
+type(𝕨::None, 𝕩::TR2D) = 3.0
+type(𝕨::None, 𝕩::TR3D) = 3.0
+type(𝕨::None, 𝕩::TR3O) = 3.0
+type(𝕨::None, 𝕩::F) = 3.0
+type(𝕨::None, 𝕩::FN) = 3.0
+type(𝕨::None, 𝕩::M1N) = 4.0
+type(𝕨::None, 𝕩::M1D) = 4.0
+type(𝕨::None, 𝕩::M1I) = 4.0
+type(𝕨::None, 𝕩::M2N) = 5.0
+type(𝕨::None, 𝕩::M2D) = 5.0
+type(𝕨::None, 𝕩::M2I) = 5.0
 
 @nospecialize
 (𝕤::AbstractArray)(𝕨, 𝕩) = 𝕤

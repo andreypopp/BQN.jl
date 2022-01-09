@@ -81,14 +81,6 @@ for (idx, name) in enumerate(names)
   eval(quote $name0 = $(value[idx]) end)
 end
 
-function set_override(func::Any; name=nothing)
-  if name === nothing; name = string(Symbol(func)) end
-  idx = indices[name]
-  value[idx] = func
-end
-set_override(func::M1N) = set_override(func, name=string(Symbol(func.run)))
-set_override(func::M2N) = set_override(func, name=string(Symbol(func.run)))
-
 prim_ind(𝕨, 𝕩) = get(_runtime_indices, 𝕩, _runtime_length)
 
 function decompose(𝕨, 𝕩)
@@ -122,6 +114,13 @@ end
 set_prims(none, [decompose, prim_ind])
 
 runtime(n::Int64) = value[n + 1]
+
+funname(𝕗::Function) = string(Symbol(𝕗))
+funname(𝕗::Union{M1N,M2N}) = funname(𝕗.run)
+
+macro override(𝕗)
+  eval(quote value[indices[funname($𝕗)]] = $𝕗 end)
+end
 
 """ Generate a function body which broadcasts 𝕗 along the leading axis."""
 macro along𝕨𝕩(𝕗, 𝕨, 𝕩)
@@ -191,7 +190,7 @@ bqnadd(𝕨::Union{Number,Char}, 𝕩::AbstractArray) = @along𝕩(bqnadd, 𝕨,
 bqnadd(𝕨::AbstractArray, 𝕩::Union{Number,Char}) = @along𝕨(bqnadd, 𝕨, 𝕩)
 bqnadd(𝕨::AbstractArray, 𝕩::AbstractArray) = @along𝕨𝕩(bqnadd, 𝕨, 𝕩)
 
-set_override(bqnadd)
+@override(bqnadd)
 
 # - bqnsub minus
 bqnsub(𝕨::None, 𝕩) = float(-𝕩)
@@ -205,7 +204,7 @@ bqnsub(𝕨::Union{Number,Char}, 𝕩::AbstractArray) = @along𝕩(bqnsub, 𝕨,
 bqnsub(𝕨::AbstractArray, 𝕩::Union{Number,Char}) = @along𝕨(bqnsub, 𝕨, 𝕩)
 bqnsub(𝕨::AbstractArray, 𝕩::AbstractArray) = @along𝕨𝕩(bqnsub, 𝕨, 𝕩)
 
-set_override(bqnsub)
+@override(bqnsub)
 
 # × bqnmul sign
 bqnmul(𝕨::None, 𝕩::Number) = float(sign(𝕩))
@@ -216,7 +215,7 @@ bqnmul(𝕨::Number, 𝕩::AbstractArray) = @along𝕩(bqnmul, 𝕨, 𝕩)
 bqnmul(𝕨::AbstractArray, 𝕩::Number) = @along𝕨(bqnmul, 𝕨, 𝕩)
 bqnmul(𝕨::AbstractArray, 𝕩::AbstractArray) = @along𝕨𝕩(bqnmul, 𝕨, 𝕩)
 
-set_override(bqnmul)
+@override(bqnmul)
 
 # ≠ bqnneq length
 bqnneq(𝕨::None, 𝕩::Vector) = float(length(𝕩))
@@ -231,7 +230,7 @@ bqnneq(𝕨, 𝕩::AbstractArray) = @along𝕩(bqnneq, 𝕨, 𝕩)
 bqnneq(𝕨::AbstractArray, 𝕩) = @along𝕨(bqnneq, 𝕨, 𝕩)
 bqnneq(𝕨::AbstractArray, 𝕩::AbstractArray) = @along𝕨𝕩(bqnneq, 𝕨, 𝕩)
 
-set_override(bqnneq)
+@override(bqnneq)
 
 # < bqnlt box
 bqnlt(𝕨::None, 𝕩) = fill(𝕩)
@@ -244,7 +243,7 @@ bqnlt(𝕨::Union{Number,Char}, 𝕩::AbstractArray) = @along𝕩(bqnlt, 𝕨, �
 bqnlt(𝕨::AbstractArray, 𝕩::Union{Number,Char}) = @along𝕨(bqnlt, 𝕨, 𝕩)
 bqnlt(𝕨::AbstractArray, 𝕩::AbstractArray) = @along𝕨𝕩(bqnlt, 𝕨, 𝕩)
 
-set_override(bqnlt)
+@override(bqnlt)
 
 # ≤ bqnlte
 bqnlte(𝕨::Number, 𝕩::Number) = float(𝕨 ≤ 𝕩)
@@ -255,7 +254,7 @@ bqnlte(𝕨::Union{Number,Char}, 𝕩::AbstractArray) = @along𝕩(bqnlte, 𝕨,
 bqnlte(𝕨::AbstractArray, 𝕩::Union{Number,Char}) = @along𝕨(bqnlte, 𝕨, 𝕩)
 bqnlte(𝕨::AbstractArray, 𝕩::AbstractArray) = @along𝕨𝕩(bqnlte, 𝕨, 𝕩)
 
-set_override(bqnlte)
+@override(bqnlte)
 
 # ≥ bqngte
 bqngte(𝕨::Number, 𝕩::Number) = float(𝕨 ≥ 𝕩)
@@ -267,7 +266,7 @@ bqngte(𝕨::Union{Number,Char}, 𝕩::AbstractArray) = @along𝕩(bqngte, 𝕨,
 bqngte(𝕨::AbstractArray, 𝕩::Union{Number,Char}) = @along𝕨(bqngte, 𝕨, 𝕩)
 bqngte(𝕨::AbstractArray, 𝕩::AbstractArray) = @along𝕨𝕩(bqngte, 𝕨, 𝕩)
 
-set_override(bqngte)
+@override(bqngte)
 
 # > bqngt
 bqngt(𝕨::None, 𝕩) = bqngt0(𝕨, 𝕩)
@@ -280,7 +279,7 @@ bqngt(𝕨::Union{Number,Char}, 𝕩::AbstractArray) = @along𝕩(bqngt, 𝕨, �
 bqngt(𝕨::AbstractArray, 𝕩::Union{Number,Char}) = @along𝕨(bqngt, 𝕨, 𝕩)
 bqngt(𝕨::AbstractArray, 𝕩::AbstractArray) = @along𝕨𝕩(bqngt, 𝕨, 𝕩)
 
-set_override(bqngt)
+@override(bqngt)
 
 # ↕ bqnwindow
 bqnwindow(𝕨::None, 𝕩::Number) = begin
@@ -289,7 +288,7 @@ bqnwindow(𝕨::None, 𝕩::Number) = begin
 end
 bqnwindow(𝕨, 𝕩) = bqnwindow0(𝕨, 𝕩) # TODO: ...
 
-set_override(bqnwindow)
+@override(bqnwindow)
 
 # ⊏ bqnselect
 bqnselect(𝕨::Vector{Float64}, 𝕩::AbstractArray) = begin
@@ -346,7 +345,7 @@ makeidx(idx::Number, d::Int, size::Tuple) = begin
   idx′ >= 0 ? idx′ + 1 : size[d] + idx′ + 1
 end
 
-set_override(bqnselect)
+@override(bqnselect)
 
 # ∨ bqnor Sort Descending
 bqnor(𝕨::None, 𝕩::Vector) = sort(𝕩, rev=true)
@@ -357,7 +356,7 @@ bqnor(𝕨::Number, 𝕩::AbstractArray) = @along𝕩(bqnor, 𝕨, 𝕩)
 bqnor(𝕨::AbstractArray, 𝕩::Number) = @along𝕨(bqnor, 𝕨, 𝕩)
 bqnor(𝕨::AbstractArray, 𝕩::AbstractArray) = @along𝕨𝕩(bqnor, 𝕨, 𝕩)
 
-set_override(bqnor)
+@override(bqnor)
 
 # ∧ bqnand Sort Ascending
 bqnand(𝕨::None, 𝕩::Vector) = sort(𝕩)
@@ -368,7 +367,7 @@ bqnand(𝕨::Number, 𝕩::AbstractArray) = @along𝕩(bqnand, 𝕨, 𝕩)
 bqnand(𝕨::AbstractArray, 𝕩::Number) = @along𝕨(bqnand, 𝕨, 𝕩)
 bqnand(𝕨::AbstractArray, 𝕩::AbstractArray) = @along𝕨𝕩(bqnand, 𝕨, 𝕩)
 
-set_override(bqnand)
+@override(bqnand)
 
 # ⊑ bqnpick
 bqnpick(𝕨::None, 𝕩::Number) = 𝕩
@@ -377,7 +376,7 @@ bqnpick(𝕨::Number, 𝕩::Vector) =
   if 𝕨 >= 0; 𝕩[Int(𝕨) + 1] else 𝕩[end + (Int(𝕨) + 1)] end
 bqnpick(𝕨, 𝕩) = bqnpick0(𝕨, 𝕩)
 
-set_override(bqnpick)
+@override(bqnpick)
 
 # = bqneq Rank
 bqneq(𝕨::None, 𝕩) = if isa(𝕩, AbstractArray); float(ndims(𝕩)) else 0.0 end
@@ -396,7 +395,7 @@ bqneq(𝕨, 𝕩) = begin
   end
 end
 
-set_override(bqneq)
+@override(bqneq)
 
 # ∾ bqnjoin
 bqnjoin(𝕨::None, 𝕩::Vector) = bqnjoin0(𝕨, 𝕩)
@@ -418,7 +417,7 @@ bqnjoin(𝕨, 𝕩) = begin
   bqnjoin0(𝕨, 𝕩)
 end
 
-set_override(bqnjoin)
+@override(bqnjoin)
 
 # / bqnreplicate
 bqnreplicate(𝕨::AbstractArray, 𝕩::AbstractArray) = begin
@@ -444,7 +443,7 @@ bqnreplicate(𝕨::None, 𝕩::AbstractArray) = begin
 end
 bqnreplicate(𝕨, 𝕩) = bqnreplicate0(𝕨, 𝕩)
 
-set_override(bqnreplicate)
+@override(bqnreplicate)
 
 # » bqnrshift
 bqnrshift(𝕨::Union{Char,Number}, 𝕩::Vector) = begin
@@ -459,7 +458,7 @@ bqnrshift(𝕨::None, 𝕩::Vector) =
   bqnrshift(0.0, 𝕩)
 bqnrshift(𝕨, 𝕩) = bqnrshift0(𝕨, 𝕩)
 
-set_override(bqnrshift)
+@override(bqnrshift)
 
 # « bqnlshift
 bqnlshift(𝕨::Union{Char,Number}, 𝕩::Vector) = begin
@@ -474,7 +473,7 @@ bqnlshift(𝕨::None, 𝕩::Vector) =
   bqnlshift(0.0, 𝕩)
 bqnlshift(𝕨, 𝕩) = bqnlshift0(𝕨, 𝕩)
 
-set_override(bqnlshift)
+@override(bqnlshift)
 
 # ↓ bqndrop
 bqndrop(𝕨::Number, 𝕩::AbstractArray) = begin
@@ -488,7 +487,7 @@ bqndropone(𝕨::Int, 𝕩::AbstractArray) =
   elseif 𝕨 > 0; 𝕩[𝕨+1:end]
   else 𝕩[1:end+𝕨] end
 
-set_override(bqndrop)
+@override(bqndrop)
 @specialize
 
 const _runtime_length = length(value)

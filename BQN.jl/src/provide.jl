@@ -3,7 +3,7 @@ module Provide
 
 using TimerOutputs
 
-import ..none, ..None, ..BQNError
+import ..none, ..None, ..BQNError, ..type
 import ..F, ..FN, ..TR2D, ..TR3D, ..TR3O
 import ..M1D, ..M1I, ..M1N, ..M2D, ..M2I, ..M2N
 
@@ -184,28 +184,6 @@ function bqnscan(𝕘, 𝕗)
   FN(run, 𝕘, 𝕣, 𝕗)
 end
 
-function bqntype(𝕨::None, 𝕩)
-  @nospecialize
-  type = bqntype′(𝕨, 𝕩)
-  # @info "bqntype" 𝕩 type
-  type
-end
-bqntype′(𝕨::None, 𝕩::AbstractArray) = 0.0
-bqntype′(𝕨::None, 𝕩::Number) = 1.0
-bqntype′(𝕨::None, 𝕩::Char) = 2.0
-bqntype′(𝕨::None, 𝕩::Function) = 3.0
-bqntype′(𝕨::None, 𝕩::TR2D) = 3.0
-bqntype′(𝕨::None, 𝕩::TR3D) = 3.0
-bqntype′(𝕨::None, 𝕩::TR3O) = 3.0
-bqntype′(𝕨::None, 𝕩::F) = 3.0
-bqntype′(𝕨::None, 𝕩::FN) = 3.0
-bqntype′(𝕨::None, 𝕩::M1N) = 4.0
-bqntype′(𝕨::None, 𝕩::M1D) = 4.0
-bqntype′(𝕨::None, 𝕩::M1I) = 4.0
-bqntype′(𝕨::None, 𝕩::M2N) = 5.0
-bqntype′(𝕨::None, 𝕩::M2D) = 5.0
-bqntype′(𝕨::None, 𝕩::M2I) = 5.0
-
 bqnfill(𝕨::None, @nospecialize(𝕩::AbstractArray)) = 0.0
 bqnfill(@nospecialize(𝕨), @nospecialize(𝕩)) = 𝕩
 
@@ -271,7 +249,7 @@ end
 @specialize
 
 const value = [
-  bqntype,
+  type,
   bqnfill,
   bqnlog,
   bqngrouplen,
