@@ -50,21 +50,32 @@ const names = ["+" => "bqnadd",
                "⍒" => "bqngradedown",
                "⊏" => "bqnselect",
                "⊑" => "bqnpick",
-               # "⊐" => "bqnrevselect",
-               # "⊒" => "bqnrevpick",
-               # "∊" => "bqnin",
-               # "⍷" => "bqninn",
-               # "⊔" => "bqngroup",
-               # "!" => "bqnexcl",
-               # "˙" => "bqnconst",
-               # "˜" => "bqnswap", XXX: tests fail if uncommented
-               # "˘" => "bqncell",
-               # "¨" => "bqneach",
-               # "⌜" => "bqntable",
-               # "⁼" => "bqnundo",
-               # "´" => "bqnfold",
-               # "˝" => "bqninsert",
-               # "`" => "bqnscan",
+               "⊐" => "bqnrevselect",
+               "⊒" => "bqnrevpick",
+               "∊" => "bqnmember",
+               "⍷" => "bqnfind",
+               "⊔" => "bqngroup",
+               "!" => "bqnassert",
+               "˙" => "bqnconst",
+               "˜" => "bqnswap",
+               "˘" => "bqncell",
+               "¨" => "bqneach",
+               "⌜" => "bqntable",
+               "⁼" => "bqnundo",
+               "´" => "bqnfold",
+               "˝" => "bqninsert",
+               "`" => "bqnscan",
+               "∘" => "bqnatop",
+               "○" => "bqnover",
+               "⊸" => "bqnbefore",
+               "⟜" => "bqnafter",
+               "⌾" => "bqnunder",
+               "⊘" => "bqnvalences",
+               "◶" => "bqnchoose",
+               "⎉" => "bqnrank",
+               "⚇" => "bqndepthm2",
+               "⍟" => "bqnrepeat",
+               "⎊" => "bqncatch",
               ]
 
 const indices = Dict{String, Int}(name.second => idx
@@ -73,11 +84,7 @@ const indices = Dict{String, Int}(name.second => idx
 const value, set_prims, set_inv = run("<none>", R1.value...)
 
 for (idx, name) in enumerate(names)
-  label = "$(name.second)0"
   name0 = Symbol("$(name.second)0")
-  namep = Symbol("$(name.second)0p")
-  name0′ = eval(quote $namep = $(value[idx]) end)
-  value[idx] = (𝕨, 𝕩) -> @timeit_debug to label name0′(𝕨, 𝕩)
   eval(quote $name0 = $(value[idx]) end)
 end
 
@@ -209,13 +216,86 @@ bqnsub(𝕨::AbstractArray, 𝕩::AbstractArray) = @along𝕨𝕩(bqnsub, 𝕨, 
 # × bqnmul sign
 bqnmul(𝕨::None, 𝕩::Number) = float(sign(𝕩))
 bqnmul(𝕨::None, 𝕩::AbstractArray) = bqnmul.(Ref(none), 𝕩)
-# × bqnmul mulition
+# × bqnmul multiplication
 bqnmul(𝕨::Number, 𝕩::Number) = float(𝕨 * 𝕩)
 bqnmul(𝕨::Number, 𝕩::AbstractArray) = @along𝕩(bqnmul, 𝕨, 𝕩)
 bqnmul(𝕨::AbstractArray, 𝕩::Number) = @along𝕨(bqnmul, 𝕨, 𝕩)
 bqnmul(𝕨::AbstractArray, 𝕩::AbstractArray) = @along𝕨𝕩(bqnmul, 𝕨, 𝕩)
 
 @override(bqnmul)
+
+# ÷ bqndiv
+bqndiv(𝕨::None, 𝕩::Number) = float(1/𝕩)
+bqndiv(𝕨::None, 𝕩::AbstractArray) = bqndiv.(Ref(none), 𝕩)
+# ÷ bqndiv division
+bqndiv(𝕨::Number, 𝕩::Number) = float(𝕨 / 𝕩)
+bqndiv(𝕨::Number, 𝕩::AbstractArray) = @along𝕩(bqndiv, 𝕨, 𝕩)
+bqndiv(𝕨::AbstractArray, 𝕩::Number) = @along𝕨(bqndiv, 𝕨, 𝕩)
+bqndiv(𝕨::AbstractArray, 𝕩::AbstractArray) = @along𝕨𝕩(bqndiv, 𝕨, 𝕩)
+
+@override(bqndiv)
+
+# ⋆ bqnpow
+bqnpow(𝕨::None, 𝕩::Number) = float(ℯ^𝕩)
+bqnpow(𝕨::None, 𝕩::AbstractArray) = bqnpow.(Ref(none), 𝕩)
+# ⋆ bqnpow division
+bqnpow(𝕨::Number, 𝕩::Number) = if 𝕩>=0; float(𝕨^𝕩) else 1/(𝕨^(-𝕩)) end
+bqnpow(𝕨::Number, 𝕩::AbstractArray) = @along𝕩(bqnpow, 𝕨, 𝕩)
+bqnpow(𝕨::AbstractArray, 𝕩::Number) = @along𝕨(bqnpow, 𝕨, 𝕩)
+bqnpow(𝕨::AbstractArray, 𝕩::AbstractArray) = @along𝕨𝕩(bqnpow, 𝕨, 𝕩)
+
+@override(bqnpow)
+
+# √ bqnroot square root
+bqnroot(root::None, 𝕩::Number) = sqrt(𝕩)
+bqnroot(root::None, 𝕩::AbstractArray) = sqrt.(𝕩)
+# √ bqnroot root
+bqnroot(𝕨::Number, 𝕩::Number) = 𝕩^(1/𝕨)
+bqnroot(𝕨::Number, 𝕩::AbstractArray) = @along𝕩(bqnroot, 𝕨, 𝕩)
+bqnroot(𝕨::AbstractArray, 𝕩::Number) = @along𝕨(bqnroot, 𝕨, 𝕩)
+bqnroot(𝕨::AbstractArray, 𝕩::AbstractArray) = @along𝕨𝕩(bqnroot, 𝕨, 𝕩)
+
+@override(bqnroot)
+
+# ⌊ bqnmin floor
+bqnmin(𝕨::None, 𝕩::Number) = float(floor(𝕩))
+bqnmin(𝕨::None, 𝕩::AbstractArray) = bqnmin.(Ref(𝕨), 𝕩)
+# ⌊ bqnmin minimum
+bqnmin(𝕨::Number, 𝕩::Number) = float(min(𝕨, 𝕩))
+bqnmin(𝕨::Number, 𝕩::AbstractArray) = @along𝕩(bqnmin, 𝕨, 𝕩)
+bqnmin(𝕨::AbstractArray, 𝕩::Number) = @along𝕨(bqnmin, 𝕨, 𝕩)
+bqnmin(𝕨::AbstractArray, 𝕩::AbstractArray) = @along𝕨𝕩(bqnmin, 𝕨, 𝕩)
+
+@override(bqnmin)
+
+# ⌈ bqnmax ceil
+bqnmax(𝕨::None, 𝕩::Number) =  float(ceil(𝕩))
+bqnmax(𝕨::None, 𝕩::AbstractArray) = bqnmax.(Ref(none), 𝕩)
+# ⌈ bqnmax maximum
+bqnmax(𝕨::Number, 𝕩::Number) = float(max(𝕨, 𝕩))
+bqnmax(𝕨::Number, 𝕩::AbstractArray) = @along𝕩(bqnmax, 𝕨, 𝕩)
+bqnmax(𝕨::AbstractArray, 𝕩::Number) = @along𝕨(bqnmax, 𝕨, 𝕩)
+bqnmax(𝕨::AbstractArray, 𝕩::AbstractArray) = @along𝕨𝕩(bqnmax, 𝕨, 𝕩)
+
+@override(bqnmax)
+
+# | bqnabs absolute value
+bqnabs(𝕨::None, 𝕩::Number) = float(abs(𝕩))
+bqnabs(𝕨::None, 𝕩::AbstractArray) = bqnabs.(Ref(none), 𝕩)
+# | bqnabs modulus
+bqnabs(𝕨::Number, 𝕩::Number) = float(mod(𝕩, 𝕨))
+bqnabs(𝕨::Number, 𝕩::AbstractArray) = @along𝕩(bqnabs, 𝕨, 𝕩)
+bqnabs(𝕨::AbstractArray, 𝕩::Number) = @along𝕨(bqnabs, 𝕨, 𝕩)
+bqnabs(𝕨::AbstractArray, 𝕩::AbstractArray) = @along𝕨𝕩(bqnabs, 𝕨, 𝕩)
+
+@override(bqnabs)
+
+# ¬ bqnnot not
+bqnnot(𝕨::None, 𝕩::Number) = float(+(1 - 𝕩))
+bqnnot(𝕨::None, 𝕩::AbstractArray) = bqnnot.(Ref(none), 𝕩)
+bqnnot(𝕨, 𝕩) = bqnnot0(𝕨, 𝕩)
+
+@override(bqnnot)
 
 # ≠ bqnneq length
 bqnneq(𝕨::None, 𝕩::Vector) = float(length(𝕩))
@@ -280,6 +360,27 @@ bqngt(𝕨::AbstractArray, 𝕩::Union{Number,Char}) = @along𝕨(bqngt, 𝕨, �
 bqngt(𝕨::AbstractArray, 𝕩::AbstractArray) = @along𝕨𝕩(bqngt, 𝕨, 𝕩)
 
 @override(bqngt)
+
+# ≢ bqndepth depth
+bqndepth(𝕨::None, 𝕩::AbstractArray) =
+  isempty(𝕩) ? 1.0 : 1.0 + maximum(bqndepth.(Ref(none), 𝕩))
+bqndepth(𝕨::None, 𝕩) = 0.0
+# ≢ bqndepth match
+bqndepth(𝕨, 𝕩) = float(𝕨 == 𝕩)
+
+@override(bqndepth)
+
+# ≢ bqnshape shape
+bqnshape(𝕨::None, 𝕩::AbstractArray) = begin
+  shape = Float64[x for x in size(𝕩)]
+  reverse!(shape)
+  shape
+end
+bqnshape(𝕨::None, 𝕩) = Float64[]
+# ≢ bqnshape not match
+bqnshape(𝕨, 𝕩) = float(𝕨 != 𝕩)
+
+@override(bqnshape)
 
 # ↕ bqnwindow
 bqnwindow(𝕨::None, 𝕩::Number) = begin
