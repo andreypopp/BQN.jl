@@ -421,19 +421,19 @@ function run_body(vm::VM, parent::Frame, body_idx::Int64, args::Args)
   if num_vars >= 5 vars[5].value = args.𝕗 end
   if num_vars >= 6 vars[6].value = args.𝕘 end
   frame = Frame(parent, vars)
-  run_code(vm, frame, pc)
+  run_code(vm, frame, Int(pc))
 end
 
 function run_block_body(vm::VM, frame::Frame, @nospecialize(block), args::Args)
   body_idx = block[3]
-  if isa(body_idx, Int)
-    run_body(vm, frame, body_idx, args)
+  if isa(body_idx, Number)
+    run_body(vm, frame, Int(body_idx), args)
   elseif isa(body_idx, AbstractArray)
     ret = nothing
     for body in body_idx
       for idx in body
         # TODO: need to check for PRED/SETH failures here
-        ret = run_body(vm, frame, idx, args)
+        ret = run_body(vm, frame, Int(idx), args)
       end
     end
     @assert ret !== nothing
@@ -500,7 +500,7 @@ c = run("<none>", C.value...)
 
 """ Compile BQN expression using self-hosted compiler."""
 function compile(src)
-  c(Runtime.value, src)
+  c(Runtime.value, str(src))
 end
 
 """ Compile and eval BQN expression (using self-hosted compiler)."""

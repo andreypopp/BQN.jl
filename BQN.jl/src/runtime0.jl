@@ -70,105 +70,102 @@ set_override(func::M2N) = set_override(func, name=string(Symbol(func.run)))
 @nospecialize
 
 # ⌊ bqnmin floor
-bqnmin(𝕨::None, 𝕩::Number) = @timeit_debug to "bqnminM" floor(𝕩)
-bqnmin(𝕨::None, 𝕩::AbstractArray) = @timeit_debug to "bqnminM" floor.(𝕩)
+bqnmin(𝕨::None, 𝕩::Number) = float(floor(𝕩))
+bqnmin(𝕨::None, 𝕩::AbstractArray) = bqnmin.(Ref(𝕨), 𝕩)
 # ⌊ bqnmin minimum
-bqnmin(𝕨::Number, 𝕩::Number) = @timeit_debug to "bqnmin" min(𝕨, 𝕩)
-bqnmin(𝕨::Number, 𝕩::AbstractArray) = @timeit_debug to "bqnmin" min.(𝕨, 𝕩)
-bqnmin(𝕨::AbstractArray, 𝕩::Number) = @timeit_debug to "bqnmin" min.(𝕨, 𝕩)
-bqnmin(𝕨::AbstractArray, 𝕩::AbstractArray) = @timeit_debug to "bqnmin" min.(𝕨, 𝕩)
+bqnmin(𝕨::Number, 𝕩::Number) = float(min(𝕨, 𝕩))
+bqnmin(𝕨::Number, 𝕩::AbstractArray) = bqnmin.(𝕨, 𝕩)
+bqnmin(𝕨::AbstractArray, 𝕩::Number) = bqnmin.(𝕨, 𝕩)
+bqnmin(𝕨::AbstractArray, 𝕩::AbstractArray) = bqnmin.(𝕨, 𝕩)
 
 set_override(bqnmin)
 
 # ⌈ bqnmax ceil
-bqnmax(𝕨::None, 𝕩::Number) = @timeit_debug to "bqnmaxM" ceil(𝕩)
-bqnmax(𝕨::None, 𝕩::AbstractArray) = @timeit_debug to "bqnmaxM" ceil.(𝕩)
+bqnmax(𝕨::None, 𝕩::Number) =  float(ceil(𝕩))
+bqnmax(𝕨::None, 𝕩::AbstractArray) = bqnmax.(Ref(none), 𝕩)
 # ⌈ bqnmax maximum
-bqnmax(𝕨::Number, 𝕩::Number) = @timeit_debug to "bqnmax" max(𝕨, 𝕩)
-bqnmax(𝕨::Number, 𝕩::AbstractArray) = @timeit_debug to "bqnmax" max.(𝕨, 𝕩)
-bqnmax(𝕨::AbstractArray, 𝕩::Number) = @timeit_debug to "bqnmax" max.(𝕨, 𝕩)
-bqnmax(𝕨::AbstractArray, 𝕩::AbstractArray) = @timeit_debug to "bqnmax" max.(𝕨, 𝕩)
+bqnmax(𝕨::Number, 𝕩::Number) = float(max(𝕨, 𝕩))
+bqnmax(𝕨::Number, 𝕩::AbstractArray) = bqnmax.(𝕨, 𝕩)
+bqnmax(𝕨::AbstractArray, 𝕩::Number) = bqnmax.(𝕨, 𝕩)
+bqnmax(𝕨::AbstractArray, 𝕩::AbstractArray) = bqnmax.(𝕨, 𝕩)
 
 set_override(bqnmax)
 
 # | bqnabs absolute value
-bqnabs(𝕨::None, 𝕩::Number) = @timeit_debug to "bqnabsM" abs(𝕩)
-bqnabs(𝕨::None, 𝕩::AbstractArray) = @timeit_debug to "bqnabsM" abs.(𝕩)
+bqnabs(𝕨::None, 𝕩::Number) = float(abs(𝕩))
+bqnabs(𝕨::None, 𝕩::AbstractArray) = bqnabs.(Ref(none), 𝕩)
 # | bqnabs modulus
-bqnabs(𝕨::Number, 𝕩::Number) = @timeit_debug to "bqnabs" mod(𝕩, 𝕨)
-bqnabs(𝕨::AbstractArray, 𝕩::Number) = @timeit_debug to "bqnabs" mod.(𝕩, 𝕨)
-bqnabs(𝕨::Number, 𝕩::AbstractArray) = @timeit_debug to "bqnabs" mod.(𝕩, 𝕨)
-bqnabs(𝕨::AbstractArray, 𝕩::AbstractArray) = @timeit_debug to "bqnabsx" mod.(𝕩, 𝕨)
+bqnabs(𝕨::Number, 𝕩::Number) = float(mod(𝕩, 𝕨))
+bqnabs(𝕨::AbstractArray, 𝕩::Number) = bqnabs.(𝕩, 𝕨)
+bqnabs(𝕨::Number, 𝕩::AbstractArray) = bqnabs.(𝕩, 𝕨)
+bqnabs(𝕨::AbstractArray, 𝕩::AbstractArray) = bqnabs.(𝕩, 𝕨)
 
 set_override(bqnabs)
 
 # < bqnlt box
-bqnlt(𝕨::None, 𝕩) = @timeit_debug to "bqnltM" fill(𝕩)
+bqnlt(𝕨::None, 𝕩) = fill(𝕩)
 # < bqnlt less than
-bqnlt(𝕨::Number, 𝕩::Number) = @timeit_debug to "bqnlt" Int(𝕨 < 𝕩) # TODO: allow Bool?
+bqnlt(𝕨::Number, 𝕩::Number) = float(𝕨 < 𝕩)
 bqnlt(𝕨::AbstractArray, 𝕩::Number) = bqnlt.(𝕨, 𝕩)
 bqnlt(𝕨::Number, 𝕩::AbstractArray) = bqnlt.(𝕨, 𝕩)
 bqnlt(𝕨::AbstractArray, 𝕩::AbstractArray) = bqnlt.(𝕨, 𝕩)
-bqnlt(𝕨::Char, 𝕩::Number) = 0
-bqnlt(𝕨::Number, 𝕩::Char) = 1
+bqnlt(𝕨::Char, 𝕩::Number) = 0.0
+bqnlt(𝕨::Number, 𝕩::Char) = 1.0
 
 set_override(bqnlt)
 
 # > bqngt greater than
-bqngt(𝕨::Number, 𝕩::Number) = @timeit_debug to "bqngt" Int(𝕨 > 𝕩) # TODO: allow Bool?
+bqngt(𝕨::Number, 𝕩::Number) = float(𝕨 > 𝕩)
 bqngt(𝕨::AbstractArray, 𝕩::Number) = bqngt.(𝕨, 𝕩)
 bqngt(𝕨::Number, 𝕩::AbstractArray) = bqngt.(𝕨, 𝕩)
 bqngt(𝕨::AbstractArray, 𝕩::AbstractArray) = bqngt.(𝕨, 𝕩)
 bqngt(𝕨::Char, 𝕩::Char) = bqngt(Int(𝕨), Int(𝕩))
-bqngt(𝕨::Char, 𝕩::Number) = 1
-bqngt(𝕨::Number, 𝕩::Char) = 0
+bqngt(𝕨::Char, 𝕩::Number) = 1.0
+bqngt(𝕨::Number, 𝕩::Char) = 0.0
 
 set_override(bqngt)
 
 # ≠ bqnneq length
-bqnneq(𝕨::None, 𝕩::Vector) = @timeit_debug to "bqnneqM" length(𝕩)
+bqnneq(𝕨::None, 𝕩::Vector) = float(length(𝕩))
 bqnneq(𝕨::None, 𝕩::AbstractArray) = begin
   @timeit_debug to "bqnneqM" begin
   size𝕩 = size(𝕩)
-  size𝕩 != () ? size𝕩[end] : 1
+  float(size𝕩 != () ? size𝕩[end] : 1)
   end
 end
-bqnneq(𝕨::None, 𝕩) = @timeit_debug "bqnneqM" length(𝕩)
+bqnneq(𝕨::None, 𝕩) = float(length(𝕩))
 # ≠ bqnneq not equals
-bqnneq(𝕨::Number, 𝕩::Number) = @timeit_debug "bqnneq" Int(𝕨 != 𝕩)
-bqnneq(𝕨::AbstractArray, 𝕩::Number) = @timeit_debug "bqnneq" 𝕨 .!= 𝕩
-bqnneq(𝕨::Number, 𝕩::AbstractArray) = @timeit_debug "bqnneq" 𝕨 .!= 𝕩
-bqnneq(𝕨::AbstractArray, 𝕩::AbstractArray) = @timeit_debug "bqnneq" 𝕨 .!= 𝕩
+bqnneq(𝕨::Number, 𝕩::Number) = float(𝕨 != 𝕩)
+bqnneq(𝕨::AbstractArray, 𝕩::Number) = bqnneq.(𝕨, 𝕩)
+bqnneq(𝕨::Number, 𝕩::AbstractArray) = bqnneq.(𝕨, 𝕩)
+bqnneq(𝕨::AbstractArray, 𝕩::AbstractArray) = bqnneq.(𝕨, 𝕩)
 
 set_override(bqnneq)
 
 # ≥ bqngte greater or equal
-bqngte(𝕨::Number, 𝕩::Number) = @timeit_debug "bqngte" Int(𝕨 >= 𝕩)
-bqngte(𝕨::AbstractArray, 𝕩::Number) = @timeit_debug "bqngte" 𝕨 .>= 𝕩
-bqngte(𝕨::Number, 𝕩::AbstractArray) = @timeit_debug "bqngte" 𝕨 .>= 𝕩
-bqngte(𝕨::AbstractArray, 𝕩::AbstractArray) = @timeit_debug "bqngte" 𝕨 .>= 𝕩
+bqngte(𝕨::Number, 𝕩::Number) = float(𝕨 >= 𝕩)
+bqngte(𝕨::AbstractArray, 𝕩::Number) = bqngte.(𝕨, 𝕩)
+bqngte(𝕨::Number, 𝕩::AbstractArray) = bqngte.(𝕨, 𝕩)
+bqngte(𝕨::AbstractArray, 𝕩::AbstractArray) = bqngte.(𝕨, 𝕩)
 
 set_override(bqngte)
 
 # ⊢ bqnright identity
-bqnright(𝕨::None, 𝕩) = 𝕩
+bqnright(𝕨::None, @nospecialize(𝕩)) = 𝕩
 # ⊢ bqnright right
-bqnright(𝕨, 𝕩) = 𝕩
+bqnright(@nospecialize(𝕨), @nospecialize(𝕩)) = 𝕩
 
 set_override(bqnright)
 
 # ⊣ bqnleft identity
-bqnleft(𝕨::None, 𝕩) = 𝕩
+bqnleft(𝕨::None, @nospecialize(𝕩)) = 𝕩
 # ⊣ bqnleft left
-bqnleft(𝕨, 𝕩) = 𝕨
+bqnleft(@nospecialize(𝕨), @nospecialize(𝕩)) = 𝕨
 
 set_override(bqnleft)
 
 # ∾ bqnjoin
-bqnjoin(𝕨::AbstractArray, 𝕩::AbstractArray) = @timeit_debug "bqnjoin" vcat(𝕨, 𝕩)
-bqnjoin(𝕨::AbstractString, 𝕩::AbstractString) = @timeit_debug "bqnjoin" string(𝕨, 𝕩)
-bqnjoin(𝕨::AbstractString, 𝕩::AbstractArray) = @timeit_debug "bqnjoin" vcat(collect(𝕨), 𝕩)
-bqnjoin(𝕨::AbstractArray, 𝕩::AbstractString) = @timeit_debug "bqnjoin" vcat(𝕨, collect(𝕩))
+bqnjoin(𝕨::AbstractArray, 𝕩::AbstractArray) = vcat(𝕨, 𝕩)
 
 set_override(bqnjoin)
 
@@ -180,28 +177,20 @@ bqnpair(𝕨, 𝕩) = [𝕨, 𝕩]
 set_override(bqnpair)
 
 # ↑ bqntake
-bqntake(𝕨::Number, 𝕩::AbstractArray) =
-  @timeit_debug "bqntake" 𝕩[1:Int(𝕨)]
-bqntake(𝕨::Number, 𝕩::AbstractString) =
-  @timeit_debug "bqntake" 𝕩[1:Int(𝕨)]
+bqntake(𝕨::Number, 𝕩::AbstractArray) = 𝕩[1:Int(𝕨)]
 
 set_override(bqntake)
 
 # ↓ bqndrop
-bqndrop(𝕨::Number, 𝕩::AbstractArray) =
-  @timeit_debug "bqndrop" 𝕩[Int(𝕨)+1:end]
-bqndrop(𝕨::Number, 𝕩::AbstractString) =
-  @timeit_debug "bqndrop" 𝕩[Int(𝕨)+1:end]
+bqndrop(𝕨::Number, 𝕩::AbstractArray) = 𝕩[Int(𝕨)+1:end]
 
 set_override(bqndrop)
 
 # ⊏ bqnselect
 bqnselect(𝕨::AbstractArray{Int}, 𝕩::AbstractArray) =
-  @timeit_debug "bqnselect" selectdim(𝕩, ndims(𝕩), 𝕨 .+ 1)
+  selectdim(𝕩, ndims(𝕩), 𝕨 .+ 1)
 bqnselect(𝕨::AbstractArray, 𝕩::AbstractArray) =
   bqnselect(map(Int, 𝕨), 𝕩)
-bqnselect(𝕨::AbstractArray, 𝕩::AbstractString) =
-  bqnselect(𝕨, collect(𝕩))
 
 set_override(bqnselect)
 
@@ -217,7 +206,7 @@ end
 
 (𝕣::FNConst)(@nospecialize(𝕨), @nospecialize(𝕩)) = 𝕣.𝕗
 
-Provide.bqntype′(𝕨::None, 𝕩::FNConst) = 3
+Provide.bqntype′(𝕨::None, 𝕩::FNConst) = 3.0
 
 set_override(bqnconst′)
 
@@ -233,7 +222,7 @@ end
 (𝕣::FNSwap)(𝕨::None, @nospecialize(𝕩)) = 𝕣.𝕗(𝕩, 𝕩)
 (𝕣::FNSwap)(@nospecialize(𝕨), @nospecialize(𝕩)) = 𝕣.𝕗(𝕩, 𝕨)
 
-Provide.bqntype′(𝕨::None, 𝕩::FNSwap) = 3
+Provide.bqntype′(𝕨::None, 𝕩::FNSwap) = 3.0
 
 set_override(bqnswap′)
 
@@ -247,11 +236,8 @@ struct FNEach
 end
 
 (𝕣::FNEach)(𝕨::AbstractArray, 𝕩::AbstractArray) = 𝕣.𝕗.(𝕨, 𝕩)
-(𝕣::FNEach)(𝕨::AbstractString, 𝕩::AbstractString) = 𝕣.𝕗.(collect(𝕨), collect(𝕩))
-(𝕣::FNEach)(𝕨::AbstractArray, 𝕩::AbstractString) = 𝕣.𝕗.(𝕨, collect(𝕩))
-(𝕣::FNEach)(𝕨::AbstractString, 𝕩::AbstractArray) = 𝕣.𝕗.(collect(𝕨), 𝕩)
 
-Provide.bqntype′(𝕨::None, 𝕩::FNEach) = 3
+Provide.bqntype′(𝕨::None, 𝕩::FNEach) = 3.0
 
 set_override(bqneach′)
 
@@ -267,7 +253,7 @@ end
 (𝕣::FNFold)(𝕨::None, 𝕩) = foldr(𝕣.𝕗, 𝕩)
 (𝕣::FNFold)(𝕨, 𝕩) = foldr(𝕣.𝕗, 𝕩, init=𝕨)
 
-Provide.bqntype′(𝕨::None, 𝕩::FNFold) = 3
+Provide.bqntype′(𝕨::None, 𝕩::FNFold) = 3.0
 
 set_override(bqnfold′)
 
@@ -283,7 +269,7 @@ end
 
 (𝕣::FNAtop)(𝕨, 𝕩) = 𝕣.𝕗(none, 𝕣.𝕘(𝕨, 𝕩))
 
-Provide.bqntype′(𝕨::None, 𝕩::FNAtop) = 3
+Provide.bqntype′(𝕨::None, 𝕩::FNAtop) = 3.0
 
 bqnatop′ = M2N(bqnatop)
 set_override(bqnatop′)
@@ -301,7 +287,7 @@ end
 (𝕣::FNOver)(𝕨, 𝕩) =
   𝕨===none ? 𝕣.𝕗(none, 𝕣.𝕘(none, 𝕩)) : 𝕣.𝕗(𝕣.𝕘(none, 𝕨), 𝕣.𝕘(none, 𝕩))
 
-Provide.bqntype′(𝕨::None, 𝕩::FNOver) = 3
+Provide.bqntype′(𝕨::None, 𝕩::FNOver) = 3.0
 
 bqnover′ = M2N(bqnover)
 set_override(bqnover′)
@@ -319,7 +305,7 @@ end
 (𝕣::FNBefore)(𝕨, 𝕩) =
   𝕨===none ? 𝕣.𝕘(𝕣.𝕗(none, 𝕩), 𝕩) : 𝕣.𝕘(𝕣.𝕗(none, 𝕨), 𝕩)
 
-Provide.bqntype′(𝕨::None, 𝕩::FNBefore) = 3
+Provide.bqntype′(𝕨::None, 𝕩::FNBefore) = 3.0
 
 bqnbefore′ = M2N(bqnbefore)
 set_override(bqnbefore′)
@@ -337,7 +323,7 @@ end
 (𝕣::FNAfter)(𝕨, 𝕩) =
   𝕨===none ? 𝕣.𝕗(𝕩, 𝕣.𝕘(none, 𝕩)) : 𝕣.𝕗(𝕨, 𝕣.𝕘(none, 𝕩))
 
-Provide.bqntype′(𝕨::None, 𝕩::FNAfter) = 3
+Provide.bqntype′(𝕨::None, 𝕩::FNAfter) = 3.0
 
 bqnafter′ = M2N(bqnafter)
 set_override(bqnafter′)
@@ -357,7 +343,7 @@ end
   𝕗(𝕨, 𝕩)
 end
 
-Provide.bqntype′(𝕨::None, 𝕩::FNChoose) = 3
+Provide.bqntype′(𝕨::None, 𝕩::FNChoose) = 3.0
 
 const bqnchoose′ = M2N(bqnchoose)
 set_override(bqnchoose′)
@@ -375,7 +361,7 @@ end
 (𝕣::FNRepeat)(@nospecialize(𝕨), @nospecialize(𝕩)) =
   convert(Bool, 𝕣.𝕘(𝕨, 𝕩)) ? 𝕣.𝕗(𝕨, 𝕩) : 𝕩
 
-Provide.bqntype′(𝕨::None, 𝕩::FNRepeat) = 3
+Provide.bqntype′(𝕨::None, 𝕩::FNRepeat) = 3.0
 
 const bqnrepeat′ = M2N(bqnrepeat)
 set_override(bqnrepeat′)

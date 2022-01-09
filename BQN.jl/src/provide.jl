@@ -12,37 +12,37 @@ const to = TimerOutput()
 @nospecialize
 
 bqnadd(𝕨::None, 𝕩) = 𝕩
-bqnadd(𝕨::Char, 𝕩::Number) = @timeit_debug to "bqnadd" 𝕨 + Int(𝕩)
-bqnadd(𝕨::Number, 𝕩::Char) = @timeit_debug to "bqnadd" Int(𝕨) + 𝕩
-bqnadd(𝕨, 𝕩) = @timeit_debug to "bqnadd" 𝕨 + 𝕩
+bqnadd(𝕨::Char, 𝕩::Number) = 𝕨 + Int(𝕩)
+bqnadd(𝕨::Number, 𝕩::Char) = Int(𝕨) + 𝕩
+bqnadd(𝕨, 𝕩) = float(𝕨 + 𝕩)
 
 bqnsub(𝕨::None, 𝕩::Number) = -𝕩
-bqnsub(𝕨::Char, 𝕩::Number) = @timeit_debug to "bqnsub" 𝕨 - Int(𝕩)
-bqnsub(𝕨, 𝕩) = @timeit_debug to "bqnsub" 𝕨 - 𝕩
+bqnsub(𝕨::Char, 𝕩::Number) = 𝕨 - Int(𝕩)
+bqnsub(𝕨, 𝕩) = float(𝕨 - 𝕩)
 
-bqnmul(𝕨::None, 𝕩::Number) = sign(𝕩)
-bqnmul(𝕨::Number, 𝕩::Number) = @timeit_debug to "bqnmul" 𝕨 * 𝕩
+bqnmul(𝕨::None, 𝕩::Number) = float(sign(𝕩))
+bqnmul(𝕨::Number, 𝕩::Number) = float(𝕨 * 𝕩)
 
 bqndiv(𝕨::None, 𝕩::Number) = 1/𝕩
-bqndiv(𝕨::Number, 𝕩::Number) = @timeit_debug to "bqndiv" 𝕨/𝕩
+bqndiv(𝕨::Number, 𝕩::Number) = 𝕨/𝕩
 
 bqnpow(𝕨::None, 𝕩::Number) = ℯ^𝕩
-bqnpow(𝕨::Number, 𝕩::Number) = @timeit_debug to "bqnpow" if 𝕩>=0; 𝕨^𝕩 else 1/(𝕨^(-𝕩)) end
+bqnpow(𝕨::Number, 𝕩::Number) = if 𝕩>=0; float(𝕨^𝕩) else 1/(𝕨^(-𝕩)) end
 
-bqnroot(root::None, v) = @timeit_debug to "bqnrootM" sqrt(v)
-bqnroot(root, v) = @timeit_debug to "bqnroot" v^(1/root)
+bqnroot(root::None, v) = sqrt(v)
+bqnroot(root, v) = v^(1/root)
 
-bqnabs(𝕨::None, v) = @timeit_debug to "bqnabsM" abs(v)
+bqnabs(𝕨::None, v) = float(abs(v))
 
-bqnmin(𝕨::Int64, 𝕩::Number) = @timeit_debug to "bqnminM" min(𝕨, 𝕩)
-bqnmin(𝕨::None, 𝕩::Number) = @timeit_debug to "bqnmin" floor(𝕩)
+bqnmin(𝕨::Number, 𝕩::Number) = float(min(𝕨, 𝕩))
+bqnmin(𝕨::None, 𝕩::Number) = float(floor(𝕩))
 
-bqnnot(𝕨::None, 𝕩::Number) = @timeit_debug to "bqnnotM" +(1 - 𝕩)
-bqnnot(𝕨::Number, 𝕩::Number) = @timeit_debug to "bqnnot" 1 + (𝕨 - 𝕩)
+bqnnot(𝕨::None, 𝕩::Number) = float(+(1 - 𝕩))
+bqnnot(𝕨::Number, 𝕩::Number) = float(1 + (𝕨 - 𝕩))
 
-bqnand(𝕨::Number, 𝕩::Number) = @timeit_debug to "bqnand" 𝕨*𝕩
+bqnand(𝕨::Number, 𝕩::Number) = float(𝕨*𝕩)
 
-bqnor(𝕨::Number, 𝕩::Number) = @timeit_debug to "bqnor" (𝕨+𝕩)-(𝕨*𝕩)
+bqnor(𝕨::Number, 𝕩::Number) = float((𝕨+𝕩)-(𝕨*𝕩))
 
 bqnidleft(𝕨, 𝕩) = 𝕨
 
@@ -76,27 +76,23 @@ end
 
 bqneq(𝕨::None, @nospecialize(𝕩::AbstractArray)) =
   @timeit_debug to "bqneqM" ndims(𝕩)
-bqneq(𝕨::None, @nospecialize(𝕩::AbstractString)) = 1
-bqneq(𝕨::None, @nospecialize(𝕩)) = 0
+bqneq(𝕨::None, @nospecialize(𝕩)) = 0.0
 bqneq(@nospecialize(𝕨), @nospecialize(𝕩)) =
-  @timeit_debug to "bqneq" Int(𝕨 == 𝕩)
+  @timeit_debug to "bqneq" float(𝕨 == 𝕩)
 
-bqnlte(𝕨, 𝕩) = @timeit_debug to "bqnlte" Int(𝕨 <= 𝕩)
-bqnlte(𝕨::Number, 𝕩::Char) = 1
-bqnlte(𝕨::Char, 𝕩::Number) = 0
+bqnlte(𝕨, 𝕩) = float(𝕨 <= 𝕩)
+bqnlte(𝕨::Number, 𝕩::Char) = 1.0
+bqnlte(𝕨::Char, 𝕩::Number) = 0.0
 
 bqnshape(𝕨, @nospecialize(𝕩::AbstractArray)) =
-  @timeit_debug to "bqnshape" reverse([x for x in size(𝕩)])
-bqnshape(𝕨, @nospecialize(𝕩::AbstractString)) =
-  @timeit_debug to "bqnshape" Int[length(𝕩)]
+  reverse(Float64[x for x in size(𝕩)])
 bqnshape(𝕨, @nospecialize(𝕩)) =
-  @timeit_debug to "bqnshape" Int[]
+  Float64[]
 
 bqndeshape(𝕨::None, @nospecialize(𝕩::AbstractArray)) =
-  @timeit_debug to "bqndeshapeM" vec(𝕩)
-bqndeshape(𝕨::None, 𝕩::AbstractString) = 𝕩
+  vec(𝕩)
 bqndeshape(𝕨::None, @nospecialize(𝕩)) =
-  @timeit_debug to "bqndeshapeM" [𝕩]
+  [𝕩]
 
 function bqndeshape(𝕨::AbstractArray, 𝕩::AbstractArray)
   @nospecialize
@@ -107,14 +103,6 @@ function bqndeshape(𝕨::AbstractArray, 𝕩::AbstractArray)
   end
 end
 
-function bqndeshape(𝕨::AbstractArray, 𝕩::AbstractString)
-  @nospecialize
-  @timeit_debug to "bqndeshape" begin
-  𝕩 = collect(𝕩)
-  bqndeshape(𝕨, 𝕩)
-  end
-end
-      
 function bqndeshape(𝕨::AbstractArray, 𝕩::Any)
   @nospecialize
   @timeit_debug to "bqndeshape" begin
@@ -135,8 +123,6 @@ end
 bqnpick(𝕨::None, @nospecialize(𝕩::AbstractArray)) =
   bqnpick(0, 𝕩)
 # TODO: get rid of collect, this is slow!
-bqnpick(𝕨::Number, 𝕩::AbstractString) = bqnpick(𝕨, collect(𝕩))
-bqnpick(𝕨::None, 𝕩::AbstractString) = bqnpick(0, collect(𝕩))
 bqnpick(𝕨::None, 𝕩) = 𝕩
 
 bqnwindow(𝕨, 𝕩) = @timeit_debug to "bqnwindow" [x for x in 0:(𝕩-1)]
@@ -204,25 +190,23 @@ function bqntype(𝕨::None, 𝕩)
   # @info "bqntype" 𝕩 type
   type
 end
-bqntype′(𝕨::None, 𝕩::AbstractArray) = 0
-bqntype′(𝕨::None, 𝕩::AbstractString) = 0
-bqntype′(𝕨::None, 𝕩::Number) = 1
-bqntype′(𝕨::None, 𝕩::Char) = 2
-bqntype′(𝕨::None, 𝕩::Function) = 3
-bqntype′(𝕨::None, 𝕩::TR2D) = 3
-bqntype′(𝕨::None, 𝕩::TR3D) = 3
-bqntype′(𝕨::None, 𝕩::TR3O) = 3
-bqntype′(𝕨::None, 𝕩::F) = 3
-bqntype′(𝕨::None, 𝕩::FN) = 3
-bqntype′(𝕨::None, 𝕩::M1N) = 4
-bqntype′(𝕨::None, 𝕩::M1D) = 4
-bqntype′(𝕨::None, 𝕩::M1I) = 4
-bqntype′(𝕨::None, 𝕩::M2N) = 5
-bqntype′(𝕨::None, 𝕩::M2D) = 5
-bqntype′(𝕨::None, 𝕩::M2I) = 5
+bqntype′(𝕨::None, 𝕩::AbstractArray) = 0.0
+bqntype′(𝕨::None, 𝕩::Number) = 1.0
+bqntype′(𝕨::None, 𝕩::Char) = 2.0
+bqntype′(𝕨::None, 𝕩::Function) = 3.0
+bqntype′(𝕨::None, 𝕩::TR2D) = 3.0
+bqntype′(𝕨::None, 𝕩::TR3D) = 3.0
+bqntype′(𝕨::None, 𝕩::TR3O) = 3.0
+bqntype′(𝕨::None, 𝕩::F) = 3.0
+bqntype′(𝕨::None, 𝕩::FN) = 3.0
+bqntype′(𝕨::None, 𝕩::M1N) = 4.0
+bqntype′(𝕨::None, 𝕩::M1D) = 4.0
+bqntype′(𝕨::None, 𝕩::M1I) = 4.0
+bqntype′(𝕨::None, 𝕩::M2N) = 5.0
+bqntype′(𝕨::None, 𝕩::M2D) = 5.0
+bqntype′(𝕨::None, 𝕩::M2I) = 5.0
 
-bqnfill(𝕨::None, 𝕩::AbstractString) = ' '
-bqnfill(𝕨::None, @nospecialize(𝕩::AbstractArray)) = 0
+bqnfill(𝕨::None, @nospecialize(𝕩::AbstractArray)) = 0.0
 bqnfill(@nospecialize(𝕨), @nospecialize(𝕩)) = 𝕩
 
 bqnlog(𝕨::None, 𝕩::Number) = log(ℯ, 𝕩)
@@ -231,14 +215,14 @@ bqnlog(𝕨::Number, 𝕩::Number) = log(𝕨, 𝕩)
 function bqngrouplen(𝕨, 𝕩::AbstractArray)
   @timeit_debug to "bqngrouplen" begin
   order = []
-  lengths = Dict{Int,Int}()
-  max𝕩 = -1
+  lengths = Dict{Int,Float64}()
+  max𝕩 = -1.0
   for x in 𝕩
     max𝕩 = max(max𝕩, x)
     if haskey(lengths, x)
-      lengths[Int(x)] += 1
+      lengths[Int(x)] += 1.0
     else
-      lengths[Int(x)] = 1
+      lengths[Int(x)] = 1.0
       push!(order, x)
     end
   end
@@ -252,7 +236,7 @@ function bqngroupord(𝕨, 𝕩::AbstractArray)
   indices = [[] for _ in 1:length(𝕨)]
   for (idx, x) in enumerate(𝕩)
     if x < 0; continue end
-    push!(indices[Int(x) + 1], idx - 1)
+    push!(indices[Int(x) + 1], float(idx) - 1)
   end
   vcat(indices...)
   end
