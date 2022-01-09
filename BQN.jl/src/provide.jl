@@ -47,6 +47,7 @@ bqnidleft(𝕨, 𝕩) = 𝕨
 bqnidright(𝕨, 𝕩) = 𝕩
 
 function bqnvalences(𝕘, 𝕗)
+  @nospecialize
   𝕣 = bqnvalences
   run = function(𝕨, 𝕩)
     if 𝕨 === none
@@ -59,6 +60,7 @@ function bqnvalences(𝕘, 𝕗)
 end
 
 function bqncatch(𝕘, 𝕗)
+  @nospecialize
   𝕣 = bqncatch
   run = function(𝕨, 𝕩)
     try
@@ -70,24 +72,32 @@ function bqncatch(𝕘, 𝕗)
   FN(run, 𝕘, 𝕣, 𝕗)
 end
 
-bqneq(𝕨::None, 𝕩::AbstractArray) = @timeit_debug to "bqneqM" ndims(𝕩)
-bqneq(𝕨::None, 𝕩::AbstractString) = 1
-bqneq(𝕨::None, 𝕩) = 0
-bqneq(𝕨, 𝕩) = @timeit_debug to "bqneq" Int(𝕨 == 𝕩)
+bqneq(𝕨::None, @nospecialize(𝕩::AbstractArray)) =
+  @timeit_debug to "bqneqM" ndims(𝕩)
+bqneq(𝕨::None, @nospecialize(𝕩::AbstractString)) = 1
+bqneq(𝕨::None, @nospecialize(𝕩)) = 0
+bqneq(@nospecialize(𝕨), @nospecialize(𝕩)) =
+  @timeit_debug to "bqneq" Int(𝕨 == 𝕩)
 
 bqnlte(𝕨, 𝕩) = @timeit_debug to "bqnlte" Int(𝕨 <= 𝕩)
 bqnlte(𝕨::Number, 𝕩::Char) = 1
 bqnlte(𝕨::Char, 𝕩::Number) = 0
 
-bqnshape(𝕨, 𝕩::AbstractArray) = @timeit_debug to "bqnshape" reverse([x for x in size(𝕩)])
-bqnshape(𝕨, 𝕩::AbstractString) = @timeit_debug to "bqnshape" Int[length(𝕩)]
-bqnshape(𝕨, 𝕩) = @timeit_debug to "bqnshape" []
+bqnshape(𝕨, @nospecialize(𝕩::AbstractArray)) =
+  @timeit_debug to "bqnshape" reverse([x for x in size(𝕩)])
+bqnshape(𝕨, @nospecialize(𝕩::AbstractString)) =
+  @timeit_debug to "bqnshape" Int[length(𝕩)]
+bqnshape(𝕨, @nospecialize(𝕩)) =
+  @timeit_debug to "bqnshape" Int[]
 
-bqndeshape(𝕨::None, 𝕩::AbstractArray) = @timeit_debug to "bqndeshapeM" vec(𝕩)
+bqndeshape(𝕨::None, @nospecialize(𝕩::AbstractArray)) =
+  @timeit_debug to "bqndeshapeM" vec(𝕩)
 bqndeshape(𝕨::None, 𝕩::AbstractString) = 𝕩
-bqndeshape(𝕨::None, 𝕩) = @timeit_debug to "bqndeshapeM" [𝕩]
+bqndeshape(𝕨::None, @nospecialize(𝕩)) =
+  @timeit_debug to "bqndeshapeM" [𝕩]
 
 function bqndeshape(𝕨::AbstractArray, 𝕩::AbstractArray)
+  @nospecialize
   @timeit_debug to "bqndeshape" begin
   size = reverse(Tuple(Int(x) for x in 𝕨))
   if size == Base.size(𝕩); return 𝕩 end
@@ -96,6 +106,7 @@ function bqndeshape(𝕨::AbstractArray, 𝕩::AbstractArray)
 end
 
 function bqndeshape(𝕨::AbstractArray, 𝕩::AbstractString)
+  @nospecialize
   @timeit_debug to "bqndeshape" begin
   𝕩 = collect(𝕩)
   bqndeshape(𝕨, 𝕩)
@@ -103,6 +114,7 @@ function bqndeshape(𝕨::AbstractArray, 𝕩::AbstractString)
 end
       
 function bqndeshape(𝕨::AbstractArray, 𝕩::Any)
+  @nospecialize
   @timeit_debug to "bqndeshape" begin
   @assert length(𝕨) == 0
   collect(𝕩)
@@ -110,13 +122,16 @@ function bqndeshape(𝕨::AbstractArray, 𝕩::Any)
 end
 
 bqnpick(𝕨::Number, 𝕩::Number) = 𝕩
-bqnpick(𝕨::Float64, 𝕩::AbstractArray) = bqnpick(Int(𝕨), 𝕩)
+bqnpick(𝕨::Float64, @nospecialize(𝕩::AbstractArray)) =
+  bqnpick(Int(𝕨), 𝕩)
 function bqnpick(𝕨::Int64, 𝕩::AbstractArray)
+  @nospecialize
   @timeit_debug to "bqnpick" begin
   if 𝕨 >= 0; 𝕩[𝕨 + 1] else 𝕩[end + (𝕨 + 1)] end
   end
 end
-bqnpick(𝕨::None, 𝕩::AbstractArray) = bqnpick(0, 𝕩)
+bqnpick(𝕨::None, @nospecialize(𝕩::AbstractArray)) =
+  bqnpick(0, 𝕩)
 # TODO: get rid of collect, this is slow!
 bqnpick(𝕨::Number, 𝕩::AbstractString) = bqnpick(𝕨, collect(𝕩))
 bqnpick(𝕨::None, 𝕩::AbstractString) = bqnpick(0, collect(𝕩))
@@ -125,6 +140,7 @@ bqnpick(𝕨::None, 𝕩) = 𝕩
 bqnwindow(𝕨, 𝕩) = @timeit_debug to "bqnwindow" [x for x in 0:(𝕩-1)]
 
 function bqntable(𝕘, 𝕗)
+  @nospecialize
   𝕣 = bqntable
   # TODO: need to get rid of calls to collect() here, instead need to iterate
   # over graphemes for Strings
@@ -146,6 +162,7 @@ function bqntable(𝕘, 𝕗)
 end
 
 function bqnscan(𝕘, 𝕗)
+  @nospecialize
   @assert 𝕘 === nothing
   𝕣 = bqnscan
   run = function(𝕨, 𝕩::AbstractArray)
@@ -180,6 +197,7 @@ function bqnscan(𝕘, 𝕗)
 end
 
 function bqntype(𝕨::None, 𝕩)
+  @nospecialize
   type = bqntype′(𝕨, 𝕩)
   # @info "bqntype" 𝕩 type
   type
@@ -202,8 +220,8 @@ bqntype′(𝕨::None, 𝕩::M2D) = 5
 bqntype′(𝕨::None, 𝕩::M2I) = 5
 
 bqnfill(𝕨::None, 𝕩::AbstractString) = ' '
-bqnfill(𝕨::None, 𝕩::AbstractArray) = 0
-bqnfill(𝕨, 𝕩) = 𝕩
+bqnfill(𝕨::None, @nospecialize(𝕩::AbstractArray)) = 0
+bqnfill(@nospecialize(𝕨), @nospecialize(𝕩)) = 𝕩
 
 bqnlog(𝕨::None, 𝕩::Number) = log(ℯ, 𝕩)
 bqnlog(𝕨::Number, 𝕩::Number) = log(𝕨, 𝕩)
@@ -255,8 +273,10 @@ function bqnassert(𝕨, 𝕩)
 end
 
 function bqnfillby(𝕘, 𝕗)
+  @nospecialize
   𝕣 = bqnfillby
   run = function(𝕨, 𝕩)
+    @nospecialize
     𝕗(𝕨, 𝕩)
   end
   FN(run, 𝕘, 𝕣, 𝕗)

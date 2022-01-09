@@ -92,6 +92,7 @@ set_override(func::M2N) = set_override(func, name=string(Symbol(func.run)))
 prim_ind(𝕨, 𝕩) = get(_runtime_indices, 𝕩, _runtime_length)
 
 function decompose(𝕨, 𝕩)
+  @nospecialize
   @timeit_debug to "decompose" begin
     if haskey(_runtime_indices, 𝕩);       [0, 𝕩]
     elseif isa(𝕩, F) && 𝕩.𝕘 !== nothing;  [5, 𝕩.𝕗, 𝕩.𝕣, 𝕩.𝕘]
@@ -123,7 +124,7 @@ set_prims(none, [decompose, prim_ind])
 runtime(n::Int64) = value[n + 1]
 
 """ Generate a function body which broadcasts 𝕗 along the leading axis."""
-macro along_leading_axis(𝕗, 𝕨, 𝕩)
+macro along𝕨𝕩(𝕗, 𝕨, 𝕩)
   quote
     𝕗, 𝕨, 𝕩 = $(esc(𝕗)), $(esc(𝕨)), $(esc(𝕩))
     size𝕨, size𝕩 = size(𝕨), size(𝕩)
@@ -163,17 +164,30 @@ macro along_leading_axis(𝕗, 𝕨, 𝕩)
   end
 end
 
+macro along𝕨(𝕗, 𝕨, 𝕩)
+  quote
+    𝕗, 𝕨, 𝕩 = $(esc(𝕗)), $(esc(𝕨)), $(esc(𝕩))
+    size(𝕨) == () ? collect(𝕗(𝕨[1], 𝕩)) : 𝕗.(𝕨, 𝕩)
+  end
+end
+
+macro along𝕩(𝕗, 𝕨, 𝕩)
+  quote
+    𝕗, 𝕨, 𝕩 = $(esc(𝕗)), $(esc(𝕨)), $(esc(𝕩))
+    size(𝕩) == () ? collect(𝕗(𝕨, 𝕩[1])) : 𝕗.(𝕨, 𝕩)
+  end
+end
+
+@nospecialize
 # + bqnadd plus
 bqnadd(𝕨::None, 𝕩) = 𝕩
 # + bqnadd addition
 bqnadd(𝕨::Char, 𝕩::Number) = 𝕨 + Int(𝕩)
 bqnadd(𝕨::Number, 𝕩::Char) = Int(𝕨) + 𝕩
 bqnadd(𝕨::Number, 𝕩::Number) = 𝕨 + 𝕩
-bqnadd(𝕨::Union{Number,Char}, 𝕩::AbstractArray) =
-  size(𝕩) == () ? collect(bqnadd(𝕨, 𝕩[1])) : bqnadd.(𝕨, 𝕩)
-bqnadd(𝕨::AbstractArray, 𝕩::Union{Number,Char}) =
-  size(𝕨) == () ? collect(bqnadd(𝕨[1], 𝕩)) : bqnadd.(𝕨, 𝕩)
-bqnadd(𝕨::AbstractArray, 𝕩::AbstractArray) = @along_leading_axis(bqnadd, 𝕨, 𝕩)
+bqnadd(𝕨::Union{Number,Char}, 𝕩::AbstractArray) = @along𝕩(bqnadd, 𝕨, 𝕩)
+bqnadd(𝕨::AbstractArray, 𝕩::Union{Number,Char}) = @along𝕨(bqnadd, 𝕨, 𝕩)
+bqnadd(𝕨::AbstractArray, 𝕩::AbstractArray) = @along𝕨𝕩(bqnadd, 𝕨, 𝕩)
 bqnadd(𝕨::AbstractString, 𝕩) = bqnadd(collect(𝕨), 𝕩)
 bqnadd(𝕨, 𝕩::AbstractString) = bqnadd(𝕨, collect(𝕩))
 
@@ -185,11 +199,9 @@ bqnsub(𝕨::None, 𝕩) = -𝕩
 bqnsub(𝕨::Char, 𝕩::Number) = 𝕨 - Int(𝕩)
 bqnsub(𝕨::Char, 𝕩::Char) = 𝕨 - 𝕩
 bqnsub(𝕨::Number, 𝕩::Number) = 𝕨 - 𝕩
-bqnsub(𝕨::Union{Number,Char}, 𝕩::AbstractArray) =
-  size(𝕩) == () ? collect(bqnsub(𝕨, 𝕩[1])) : bqnsub.(𝕨, 𝕩)
-bqnsub(𝕨::AbstractArray, 𝕩::Union{Number,Char}) =
-  size(𝕨) == () ? collect(bqnsub(𝕨[1], 𝕩)) : bqnsub.(𝕨, 𝕩)
-bqnsub(𝕨::AbstractArray, 𝕩::AbstractArray) = @along_leading_axis(bqnsub, 𝕨, 𝕩)
+bqnsub(𝕨::Union{Number,Char}, 𝕩::AbstractArray) = @along𝕩(bqnsub, 𝕨, 𝕩)
+bqnsub(𝕨::AbstractArray, 𝕩::Union{Number,Char}) = @along𝕨(bqnsub, 𝕨, 𝕩)
+bqnsub(𝕨::AbstractArray, 𝕩::AbstractArray) = @along𝕨𝕩(bqnsub, 𝕨, 𝕩)
 bqnsub(𝕨::AbstractString, 𝕩::AbstractString) = bqnsub(collect(𝕨), collect(𝕩))
 bqnsub(𝕨::AbstractString, 𝕩) = bqnsub(collect(𝕨), 𝕩)
 bqnsub(𝕨, 𝕩::AbstractString) = bqnsub(𝕨, collect(𝕩))
@@ -202,11 +214,9 @@ bqnmul(𝕨::None, 𝕩::AbstractArray) = sign.(𝕩)
 bqnmul(𝕨::None, 𝕩) = sign(𝕩)
 # × bqnmul mulition
 bqnmul(𝕨::Number, 𝕩::Number) = 𝕨 * 𝕩
-bqnmul(𝕨::Number, 𝕩::AbstractArray) =
-  size(𝕩) == () ? collect(bqnmul(𝕨, 𝕩[1])) : bqnmul.(𝕨, 𝕩)
-bqnmul(𝕨::AbstractArray, 𝕩::Number) =
-  size(𝕨) == () ? collect(bqnmul(𝕨[1], 𝕩)) : bqnmul.(𝕨, 𝕩)
-bqnmul(𝕨::AbstractArray, 𝕩::AbstractArray) = @along_leading_axis(bqnmul, 𝕨, 𝕩)
+bqnmul(𝕨::Number, 𝕩::AbstractArray) = @along𝕩(bqnmul, 𝕨, 𝕩)
+bqnmul(𝕨::AbstractArray, 𝕩::Number) = @along𝕨(bqnmul, 𝕨, 𝕩)
+bqnmul(𝕨::AbstractArray, 𝕩::AbstractArray) = @along𝕨𝕩(bqnmul, 𝕨, 𝕩)
 
 set_override(bqnmul)
 
@@ -245,7 +255,7 @@ bqnlt(𝕨::Union{Number,Char}, 𝕩::AbstractArray) =
 bqnlt(𝕨::AbstractArray, 𝕩::Union{Number,Char}) =
   size(𝕨) == () ? collect(bqnlt(𝕨[1], 𝕩)) : bqnlt.(𝕨, 𝕩)
 bqnlt(𝕨::AbstractArray, 𝕩::AbstractArray) =
-  @along_leading_axis(bqnlt, 𝕨, 𝕩)
+  @along𝕨𝕩(bqnlt, 𝕨, 𝕩)
 bqnlt(𝕨::AbstractString, 𝕩) = bqnlt(collect(𝕨), 𝕩)
 bqnlt(𝕨, 𝕩::AbstractString) = bqnlt(𝕨, collect(𝕩))
 
@@ -262,7 +272,7 @@ bqnlte(𝕨::Union{Number,Char}, 𝕩::AbstractArray) =
 bqnlte(𝕨::AbstractArray, 𝕩::Union{Number,Char}) =
   size(𝕨) == () ? collect(bqnlte(𝕨[1], 𝕩)) : bqnlte.(𝕨, 𝕩)
 bqnlte(𝕨::AbstractArray, 𝕩::AbstractArray) =
-  @along_leading_axis(bqnlte, 𝕨, 𝕩)
+  @along𝕨𝕩(bqnlte, 𝕨, 𝕩)
 bqnlte(𝕨::AbstractString, 𝕩) = bqnlte(collect(𝕨), 𝕩)
 bqnlte(𝕨, 𝕩::AbstractString) = bqnlte(𝕨, collect(𝕩))
 
@@ -279,7 +289,7 @@ bqngte(𝕨::Union{Number,Char}, 𝕩::AbstractArray) =
 bqngte(𝕨::AbstractArray, 𝕩::Union{Number,Char}) =
   size(𝕨) == () ? collect(bqngte(𝕨[1], 𝕩)) : bqngte.(𝕨, 𝕩)
 bqngte(𝕨::AbstractArray, 𝕩::AbstractArray) =
-  @along_leading_axis(bqngte, 𝕨, 𝕩)
+  @along𝕨𝕩(bqngte, 𝕨, 𝕩)
 bqngte(𝕨::AbstractString, 𝕩) = bqngte(collect(𝕨), 𝕩)
 bqngte(𝕨, 𝕩::AbstractString) = bqngte(𝕨, collect(𝕩))
 
@@ -299,7 +309,7 @@ bqngt(𝕨::Union{Number,Char}, 𝕩::AbstractArray) =
 bqngt(𝕨::AbstractArray, 𝕩::Union{Number,Char}) =
   size(𝕨) == () ? collect(bqngt(𝕨[1], 𝕩)) : bqngt.(𝕨, 𝕩)
 bqngt(𝕨::AbstractArray, 𝕩::AbstractArray) =
-  @along_leading_axis(bqngt, 𝕨, 𝕩)
+  @along𝕨𝕩(bqngt, 𝕨, 𝕩)
 bqngt(𝕨::AbstractString, 𝕩) = bqngt(collect(𝕨), 𝕩)
 bqngt(𝕨, 𝕩::AbstractString) = bqngt(𝕨, collect(𝕩))
 
@@ -521,6 +531,7 @@ bqndropone(𝕨::Int, 𝕩::AbstractArray) =
   else 𝕩[1:end+𝕨] end
 
 set_override(bqndrop)
+@specialize
 
 const _runtime_length = length(value)
 const _runtime_indices = IdDict(𝕗 => idx - 1

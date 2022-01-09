@@ -124,6 +124,7 @@ bqngt(𝕨::Number, 𝕩::Char) = 0
 set_override(bqngt)
 
 # ≠ bqnneq length
+@nospecialize
 bqnneq(𝕨::None, 𝕩::Vector) = @timeit_debug to "bqnneqM" length(𝕩)
 bqnneq(𝕨::None, 𝕩::AbstractArray) = begin
   @timeit_debug to "bqnneqM" begin
@@ -137,6 +138,7 @@ bqnneq(𝕨::Number, 𝕩::Number) = @timeit_debug "bqnneq" Int(𝕨 != 𝕩)
 bqnneq(𝕨::AbstractArray, 𝕩::Number) = @timeit_debug "bqnneq" 𝕨 .!= 𝕩
 bqnneq(𝕨::Number, 𝕩::AbstractArray) = @timeit_debug "bqnneq" 𝕨 .!= 𝕩
 bqnneq(𝕨::AbstractArray, 𝕩::AbstractArray) = @timeit_debug "bqnneq" 𝕨 .!= 𝕩
+@specialize
 
 set_override(bqnneq)
 
@@ -148,17 +150,21 @@ bqngte(𝕨::AbstractArray, 𝕩::AbstractArray) = @timeit_debug "bqngte" 𝕨 .
 
 set_override(bqngte)
 
+@nospecialize
 # ⊢ bqnright identity
 bqnright(𝕨::None, 𝕩) = 𝕩
 # ⊢ bqnright right
 bqnright(𝕨, 𝕩) = 𝕩
+@specialize
 
 set_override(bqnright)
 
+@nospecialize
 # ⊣ bqnleft identity
 bqnleft(𝕨::None, 𝕩) = 𝕩
 # ⊣ bqnleft left
 bqnleft(𝕨, 𝕩) = 𝕨
+@specialize
 
 set_override(bqnleft)
 
@@ -178,33 +184,40 @@ bqnpair(𝕨, 𝕩) = [𝕨, 𝕩]
 set_override(bqnpair)
 
 # ↑ bqntake
+@nospecialize
 bqntake(𝕨::Number, 𝕩::AbstractArray) =
   @timeit_debug "bqntake" 𝕩[1:Int(𝕨)]
 bqntake(𝕨::Number, 𝕩::AbstractString) =
   @timeit_debug "bqntake" 𝕩[1:Int(𝕨)]
+@specialize
 
 set_override(bqntake)
 
 # ↓ bqndrop
+@nospecialize
 bqndrop(𝕨::Number, 𝕩::AbstractArray) =
   @timeit_debug "bqndrop" 𝕩[Int(𝕨)+1:end]
 bqndrop(𝕨::Number, 𝕩::AbstractString) =
   @timeit_debug "bqndrop" 𝕩[Int(𝕨)+1:end]
+@specialize
 
 set_override(bqndrop)
 
 # ⊏ bqnselect
+@nospecialize
 bqnselect(𝕨::AbstractArray{Int}, 𝕩::AbstractArray) =
   @timeit_debug "bqnselect" selectdim(𝕩, ndims(𝕩), 𝕨 .+ 1)
 bqnselect(𝕨::AbstractArray, 𝕩::AbstractArray) =
   bqnselect(map(Int, 𝕨), 𝕩)
 bqnselect(𝕨::AbstractArray, 𝕩::AbstractString) =
   bqnselect(𝕨, collect(𝕩))
+@specialize
 
 set_override(bqnselect)
 
 # ˙ bqnconst
-bqnconst(𝕘::Nothing, 𝕗) = FNConst(bqnconst′, 𝕗)
+bqnconst(𝕘::Nothing, @nospecialize(𝕗)) =
+  FNConst(bqnconst′, 𝕗)
 bqnconst′ = M1N(bqnconst)
 
 struct FNConst
@@ -212,14 +225,14 @@ struct FNConst
   𝕗::Any
 end
 
-(𝕣::FNConst)(𝕨, 𝕩) = 𝕣.𝕗
+(𝕣::FNConst)(@nospecialize(𝕨), @nospecialize(𝕩)) = 𝕣.𝕗
 
 Provide.bqntype′(𝕨::None, 𝕩::FNConst) = 3
 
 set_override(bqnconst′)
 
 # ˜ bqnswap
-bqnswap(𝕘::Nothing, 𝕗) = FNSwap(bqnswap′, 𝕗)
+bqnswap(𝕘::Nothing, @nospecialize(𝕗)) = FNSwap(bqnswap′, 𝕗)
 bqnswap′ = M1N(bqnswap)
 
 struct FNSwap
@@ -227,15 +240,15 @@ struct FNSwap
   𝕗::Any
 end
 
-(𝕣::FNSwap)(𝕨::None, 𝕩) = 𝕣.𝕗(𝕩, 𝕩)
-(𝕣::FNSwap)(𝕨, 𝕩) = 𝕣.𝕗(𝕩, 𝕨)
+(𝕣::FNSwap)(𝕨::None, @nospecialize(𝕩)) = 𝕣.𝕗(𝕩, 𝕩)
+(𝕣::FNSwap)(@nospecialize(𝕨), @nospecialize(𝕩)) = 𝕣.𝕗(𝕩, 𝕨)
 
 Provide.bqntype′(𝕨::None, 𝕩::FNSwap) = 3
 
 set_override(bqnswap′)
 
 # ¨ bqneach
-bqneach(𝕘::Nothing, 𝕗) = FNEach(bqneach′, 𝕗)
+bqneach(𝕘::Nothing, @nospecialize(𝕗)) = FNEach(bqneach′, 𝕗)
 bqneach′ = M1N(bqneach)
 
 struct FNEach
@@ -243,17 +256,19 @@ struct FNEach
   𝕗::Any
 end
 
+@nospecialize
 (𝕣::FNEach)(𝕨::AbstractArray, 𝕩::AbstractArray) = 𝕣.𝕗.(𝕨, 𝕩)
 (𝕣::FNEach)(𝕨::AbstractString, 𝕩::AbstractString) = 𝕣.𝕗.(collect(𝕨), collect(𝕩))
 (𝕣::FNEach)(𝕨::AbstractArray, 𝕩::AbstractString) = 𝕣.𝕗.(𝕨, collect(𝕩))
 (𝕣::FNEach)(𝕨::AbstractString, 𝕩::AbstractArray) = 𝕣.𝕗.(collect(𝕨), 𝕩)
+@specialize
 
 Provide.bqntype′(𝕨::None, 𝕩::FNEach) = 3
 
 set_override(bqneach′)
 
 # ´ bqnfold
-bqnfold(𝕘::Nothing, 𝕗) = FNFold(bqnfold′, 𝕗)
+bqnfold(𝕘::Nothing, @nospecialize(𝕗)) = FNFold(bqnfold′, 𝕗)
 bqnfold′ = M1N(bqnfold)
 
 struct FNFold
@@ -261,15 +276,18 @@ struct FNFold
   𝕗::Any
 end
 
+@nospecialize
 (𝕣::FNFold)(𝕨::None, 𝕩) = foldr(𝕣.𝕗, 𝕩)
 (𝕣::FNFold)(𝕨, 𝕩) = foldr(𝕣.𝕗, 𝕩, init=𝕨)
+@specialize
 
 Provide.bqntype′(𝕨::None, 𝕩::FNFold) = 3
 
 set_override(bqnfold′)
 
 # ∘ bqnatop
-bqnatop(𝕘, 𝕗) = @timeit_debug to "bqnatop" FNAtop(𝕘, bqnatop′, 𝕗)
+bqnatop(@nospecialize(𝕘), @nospecialize(𝕗)) =
+  @timeit_debug to "bqnatop" FNAtop(𝕘, bqnatop′, 𝕗)
 
 struct FNAtop
   𝕘::Union{Any,Nothing}
@@ -277,7 +295,9 @@ struct FNAtop
   𝕗::Union{Any,Nothing}
 end
 
+@nospecialize
 (𝕣::FNAtop)(𝕨, 𝕩) = 𝕣.𝕗(none, 𝕣.𝕘(𝕨, 𝕩))
+@specialize
 
 Provide.bqntype′(𝕨::None, 𝕩::FNAtop) = 3
 
@@ -285,7 +305,8 @@ bqnatop′ = M2N(bqnatop)
 set_override(bqnatop′)
 
 # ○ bqnover
-bqnover(𝕘, 𝕗) = @timeit_debug to "bqnover" FNOver(𝕘, bqnover′, 𝕗)
+bqnover(@nospecialize(𝕘), @nospecialize(𝕗)) =
+  @timeit_debug to "bqnover" FNOver(𝕘, bqnover′, 𝕗)
 
 struct FNOver
   𝕘::Union{Any,Nothing}
@@ -293,7 +314,10 @@ struct FNOver
   𝕗::Union{Any,Nothing}
 end
 
-(𝕣::FNOver)(𝕨, 𝕩) = 𝕨===none ? 𝕣.𝕗(none, 𝕣.𝕘(none, 𝕩)) : 𝕣.𝕗(𝕣.𝕘(none, 𝕨), 𝕣.𝕘(none, 𝕩))
+@nospecialize
+(𝕣::FNOver)(𝕨, 𝕩) =
+  𝕨===none ? 𝕣.𝕗(none, 𝕣.𝕘(none, 𝕩)) : 𝕣.𝕗(𝕣.𝕘(none, 𝕨), 𝕣.𝕘(none, 𝕩))
+@specialize
 
 Provide.bqntype′(𝕨::None, 𝕩::FNOver) = 3
 
@@ -301,7 +325,8 @@ bqnover′ = M2N(bqnover)
 set_override(bqnover′)
 
 # ⊸ bqnbefore
-bqnbefore(𝕘, 𝕗) = @timeit_debug to "bqnbefore" FNBefore(𝕘, bqnbefore′, 𝕗)
+bqnbefore(@nospecialize(𝕘), @nospecialize(𝕗)) =
+  @timeit_debug to "bqnbefore" FNBefore(𝕘, bqnbefore′, 𝕗)
 
 struct FNBefore
   𝕘::Union{Any,Nothing}
@@ -309,7 +334,10 @@ struct FNBefore
   𝕗::Union{Any,Nothing}
 end
 
-(𝕣::FNBefore)(𝕨, 𝕩) = 𝕨===none ? 𝕣.𝕘(𝕣.𝕗(none, 𝕩), 𝕩) : 𝕣.𝕘(𝕣.𝕗(none, 𝕨), 𝕩)
+@nospecialize
+(𝕣::FNBefore)(𝕨, 𝕩) =
+  𝕨===none ? 𝕣.𝕘(𝕣.𝕗(none, 𝕩), 𝕩) : 𝕣.𝕘(𝕣.𝕗(none, 𝕨), 𝕩)
+@specialize
 
 Provide.bqntype′(𝕨::None, 𝕩::FNBefore) = 3
 
@@ -317,7 +345,8 @@ bqnbefore′ = M2N(bqnbefore)
 set_override(bqnbefore′)
 
 # ⟜ bqnafter
-bqnafter(𝕘, 𝕗) = @timeit_debug to "bqnafter" FNAfter(𝕘, bqnafter′, 𝕗)
+bqnafter(@nospecialize(𝕘), @nospecialize(𝕗)) =
+  @timeit_debug to "bqnafter" FNAfter(𝕘, bqnafter′, 𝕗)
 
 struct FNAfter
   𝕘::Union{Any,Nothing}
@@ -325,7 +354,10 @@ struct FNAfter
   𝕗::Union{Any,Nothing}
 end
 
-(𝕣::FNAfter)(𝕨, 𝕩) = 𝕨===none ? 𝕣.𝕗(𝕩, 𝕣.𝕘(none, 𝕩)) : 𝕣.𝕗(𝕨, 𝕣.𝕘(none, 𝕩))
+@nospecialize
+(𝕣::FNAfter)(𝕨, 𝕩) =
+  𝕨===none ? 𝕣.𝕗(𝕩, 𝕣.𝕘(none, 𝕩)) : 𝕣.𝕗(𝕨, 𝕣.𝕘(none, 𝕩))
+@specialize
 
 Provide.bqntype′(𝕨::None, 𝕩::FNAfter) = 3
 
@@ -333,7 +365,8 @@ bqnafter′ = M2N(bqnafter)
 set_override(bqnafter′)
 
 # ◶ bqnchoose
-bqnchoose(𝕘, 𝕗) = @timeit_debug to "bqnchoose" FNChoose(𝕘, bqnchoose′, 𝕗)
+bqnchoose(@nospecialize(𝕘), @nospecialize(𝕗)) =
+  @timeit_debug to "bqnchoose" FNChoose(𝕘, bqnchoose′, 𝕗)
 
 struct FNChoose
   𝕘::Union{Any,Nothing}
@@ -341,10 +374,12 @@ struct FNChoose
   𝕗::Union{Any,Nothing}
 end
 
+@nospecialize
 (𝕣::FNChoose)(𝕨, 𝕩) = begin
   𝕗 = Provide.bqnpick(𝕣.𝕗(𝕨, 𝕩), 𝕣.𝕘)
   𝕗(𝕨, 𝕩)
 end
+@specialize
 
 Provide.bqntype′(𝕨::None, 𝕩::FNChoose) = 3
 
@@ -352,7 +387,8 @@ const bqnchoose′ = M2N(bqnchoose)
 set_override(bqnchoose′)
 
 # ⍟ bqnrepeat
-bqnrepeat(𝕘, 𝕗) = @timeit_debug to "bqnrepeat" FNRepeat(𝕘, bqnrepeat′, 𝕗)
+bqnrepeat(@nospecialize(𝕘), @nospecialize(𝕗)) =
+  @timeit_debug to "bqnrepeat" FNRepeat(𝕘, bqnrepeat′, 𝕗)
 
 struct FNRepeat
   𝕘::Union{Any,Nothing}
@@ -360,7 +396,8 @@ struct FNRepeat
   𝕗::Union{Any,Nothing}
 end
 
-(𝕣::FNRepeat)(𝕨, 𝕩) = convert(Bool, 𝕣.𝕘(𝕨, 𝕩)) ? 𝕣.𝕗(𝕨, 𝕩) : 𝕩
+(𝕣::FNRepeat)(@nospecialize(𝕨), @nospecialize(𝕩)) =
+  convert(Bool, 𝕣.𝕘(𝕨, 𝕩)) ? 𝕣.𝕗(𝕨, 𝕩) : 𝕩
 
 Provide.bqntype′(𝕨::None, 𝕩::FNRepeat) = 3
 

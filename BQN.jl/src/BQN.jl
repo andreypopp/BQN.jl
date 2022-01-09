@@ -181,19 +181,23 @@ end
 Base.show(io::IO, f::M2D) = show(io, "<BQN deferred 2-modifier>")
 
 
+@nospecialize
 (𝕤::AbstractArray)(𝕨, 𝕩) = 𝕤
 (𝕤::Float64)(𝕨, 𝕩) = 𝕤
 (𝕤::Int)(𝕨, 𝕩) = 𝕤
 (𝕤::Char)(𝕨, 𝕩) = 𝕤
 (𝕤::Bool)(𝕨, 𝕩) = 𝕤
 (𝕤::String)(𝕨, 𝕩) = 𝕤
-(𝕤::F)(𝕨, 𝕩) = run_block_body(𝕤.vm, 𝕤.frame, 𝕤.block, 𝕤, 𝕨, 𝕩, 𝕤.𝕘, 𝕤.𝕗)
+(𝕤::F)(𝕨, 𝕩) = run_block_body(𝕤.vm, 𝕤.frame, 𝕤.block,
+                              Args(𝕤, 𝕨, 𝕩, 𝕤.𝕘, 𝕤.𝕗))
 (𝕤::FN)(𝕨, 𝕩) = 𝕤.run(𝕨, 𝕩)
 (𝕤::M1N)(𝕘::Nothing, 𝕗) = 𝕤.run(𝕘, 𝕗)
-(𝕤::M1I)(𝕨, 𝕩) = run_block_body(𝕤.vm, 𝕤.frame, 𝕤.block, 𝕤, 𝕨, 𝕩, nothing, nothing)
+(𝕤::M1I)(𝕨, 𝕩) = run_block_body(𝕤.vm, 𝕤.frame, 𝕤.block,
+                                Args(𝕤, 𝕨, 𝕩, nothing, nothing))
 (𝕣::M1D)(𝕘, 𝕗) = F(𝕣.vm, 𝕣.frame, 𝕣.block, 𝕘, 𝕣, 𝕗)
 (𝕤::M2N)(𝕘, 𝕗) = 𝕤.run(𝕘, 𝕗)
-(𝕤::M2I)(𝕨, 𝕩) = run_block_body(𝕤.vm, 𝕤.frame, 𝕤.block, 𝕤, 𝕨, 𝕩, nothing, nothing)
+(𝕤::M2I)(𝕨, 𝕩) = run_block_body(𝕤.vm, 𝕤.frame, 𝕤.block,
+                                Args(𝕤, 𝕨, 𝕩, nothing, nothing))
 (𝕣::M2D)(𝕘, 𝕗) = F(𝕣.vm, 𝕣.frame, 𝕣.block, 𝕘, 𝕣, 𝕗)
 (𝕤::TR2D)(𝕨, 𝕩) = 𝕤.h(none, 𝕤.𝕘(𝕨, 𝕩))
 function (𝕤::TR3D)(𝕨, 𝕩)
@@ -206,6 +210,7 @@ function (𝕤::TR3O)(𝕨, 𝕩)
   𝕨´ = 𝕤.𝕘 != none ? 𝕤.𝕘(𝕨, 𝕩) : none
   𝕤.h(𝕨´, 𝕩´)
 end
+@specialize
 
 function run_code(vm::VM, frame::Frame, pc::Int64)
   stack = []
@@ -395,32 +400,40 @@ function run_code(vm::VM, frame::Frame, pc::Int64)
   end
 end
 
-function run_body(vm::VM, parent::Frame, body_idx::Int64, 𝕤, 𝕨, 𝕩, 𝕘, 𝕗)
+struct Args
+  𝕤::Any
+  𝕨::Any
+  𝕩::Any
+  𝕘::Any
+  𝕗::Any
+end
+
+function run_body(vm::VM, parent::Frame, body_idx::Int64, args::Args)
   @inbounds pc, num_vars = vm.bodies[body_idx + 1]
   vars = Refs.Ref[]
   sizehint!(vars, Int(num_vars))
   for _ in 1:num_vars; push!(vars, Refs.Ref(nothing)) end
-  if num_vars >= 1 vars[1].value = 𝕤 end
-  if num_vars >= 2 vars[2].value = 𝕩 end
-  if num_vars >= 3 vars[3].value = 𝕨 end
+  if num_vars >= 1 vars[1].value = args.𝕤 end
+  if num_vars >= 2 vars[2].value = args.𝕩 end
+  if num_vars >= 3 vars[3].value = args.𝕨 end
   # TODO: handle 𝕣
   # if num_vars >= 4 vars[4].value = 𝕣 end
-  if num_vars >= 5 vars[5].value = 𝕗 end
-  if num_vars >= 6 vars[6].value = 𝕘 end
+  if num_vars >= 5 vars[5].value = args.𝕗 end
+  if num_vars >= 6 vars[6].value = args.𝕘 end
   frame = Frame(parent, vars)
   run_code(vm, frame, pc)
 end
 
-function run_block_body(vm::VM, frame::Frame, block, 𝕤, 𝕨, 𝕩, 𝕘, 𝕗)
+function run_block_body(vm::VM, frame::Frame, @nospecialize(block), args::Args)
   body_idx = block[3]
   if isa(body_idx, Int)
-    run_body(vm, frame, body_idx, 𝕤, 𝕨, 𝕩, 𝕘, 𝕗)
+    run_body(vm, frame, body_idx, args)
   elseif isa(body_idx, AbstractArray)
     ret = nothing
     for body in body_idx
       for idx in body
         # TODO: need to check for PRED/SETH failures here
-        ret = run_body(vm, frame, idx, 𝕤, 𝕨, 𝕩, 𝕘, 𝕗)
+        ret = run_body(vm, frame, idx, args)
       end
     end
     @assert ret !== nothing
@@ -428,10 +441,11 @@ function run_block_body(vm::VM, frame::Frame, block, 𝕤, 𝕨, 𝕩, 𝕘, �
   end
 end
 
-function run_block(vm::VM, frame::Frame, block)
+function run_block(vm::VM, frame::Frame, @nospecialize(block))
   typ, imm = block
   if typ == 0 && imm == 1 # immediate
-    run_block_body(vm, frame, block, nothing, nothing, nothing, nothing, nothing)
+    run_block_body(vm, frame, block,
+                   Args(nothing, nothing, nothing, nothing, nothing))
   elseif typ == 0 && imm == 0 # function
     F(vm, frame, block, nothing, nothing, nothing)
   elseif typ == 1 && imm == 1 # mod1 immediate
