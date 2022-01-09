@@ -246,10 +246,12 @@ function bqnfillby(𝕘, 𝕗)
   FN(run, 𝕘, 𝕣, 𝕗)
 end
 
+bqntype(𝕨::None, @nospecialize(𝕩)) = type(𝕩)
+
 @specialize
 
 const value = [
-  type,
+  bqntype,
   bqnfill,
   bqnlog,
   bqngrouplen,

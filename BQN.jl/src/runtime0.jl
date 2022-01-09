@@ -207,7 +207,7 @@ end
 
 (𝕣::FNConst)(@nospecialize(𝕨), @nospecialize(𝕩)) = 𝕣.𝕗
 
-type(𝕨::None, 𝕩::FNConst) = 3.0
+type(𝕩::FNConst) = 3.0
 
 @override(bqnconst′)
 
@@ -223,7 +223,7 @@ end
 (𝕣::FNSwap)(𝕨::None, @nospecialize(𝕩)) = 𝕣.𝕗(𝕩, 𝕩)
 (𝕣::FNSwap)(@nospecialize(𝕨), @nospecialize(𝕩)) = 𝕣.𝕗(𝕩, 𝕨)
 
-type(𝕨::None, 𝕩::FNSwap) = 3.0
+type(𝕩::FNSwap) = 3.0
 
 @override(bqnswap′)
 
@@ -238,7 +238,7 @@ end
 
 (𝕣::FNEach)(𝕨::AbstractArray, 𝕩::AbstractArray) = 𝕣.𝕗.(𝕨, 𝕩)
 
-type(𝕨::None, 𝕩::FNEach) = 3.0
+type(𝕩::FNEach) = 3.0
 
 @override(bqneach′)
 
@@ -254,7 +254,7 @@ end
 (𝕣::FNFold)(𝕨::None, 𝕩) = foldr(𝕣.𝕗, 𝕩)
 (𝕣::FNFold)(𝕨, 𝕩) = foldr(𝕣.𝕗, 𝕩, init=𝕨)
 
-type(𝕨::None, 𝕩::FNFold) = 3.0
+type(𝕩::FNFold) = 3.0
 
 @override(bqnfold′)
 
@@ -270,7 +270,7 @@ end
 
 (𝕣::FNAtop)(𝕨, 𝕩) = 𝕣.𝕗(none, 𝕣.𝕘(𝕨, 𝕩))
 
-type(𝕨::None, 𝕩::FNAtop) = 3.0
+type(𝕩::FNAtop) = 3.0
 
 bqnatop′ = M2N(bqnatop)
 @override(bqnatop′)
@@ -288,7 +288,7 @@ end
 (𝕣::FNOver)(𝕨, 𝕩) =
   𝕨===none ? 𝕣.𝕗(none, 𝕣.𝕘(none, 𝕩)) : 𝕣.𝕗(𝕣.𝕘(none, 𝕨), 𝕣.𝕘(none, 𝕩))
 
-type(𝕨::None, 𝕩::FNOver) = 3.0
+type(𝕩::FNOver) = 3.0
 
 bqnover′ = M2N(bqnover)
 @override(bqnover′)
@@ -306,7 +306,7 @@ end
 (𝕣::FNBefore)(𝕨, 𝕩) =
   𝕨===none ? 𝕣.𝕘(𝕣.𝕗(none, 𝕩), 𝕩) : 𝕣.𝕘(𝕣.𝕗(none, 𝕨), 𝕩)
 
-type(𝕨::None, 𝕩::FNBefore) = 3.0
+type(𝕩::FNBefore) = 3.0
 
 bqnbefore′ = M2N(bqnbefore)
 @override(bqnbefore′)
@@ -324,7 +324,7 @@ end
 (𝕣::FNAfter)(𝕨, 𝕩) =
   𝕨===none ? 𝕣.𝕗(𝕩, 𝕣.𝕘(none, 𝕩)) : 𝕣.𝕗(𝕨, 𝕣.𝕘(none, 𝕩))
 
-type(𝕨::None, 𝕩::FNAfter) = 3.0
+type(𝕩::FNAfter) = 3.0
 
 bqnafter′ = M2N(bqnafter)
 @override(bqnafter′)
@@ -344,7 +344,7 @@ end
   𝕗(𝕨, 𝕩)
 end
 
-type(𝕨::None, 𝕩::FNChoose) = 3.0
+type(𝕩::FNChoose) = 3.0
 
 bqnchoose′ = M2N(bqnchoose)
 @override(bqnchoose′)
@@ -362,7 +362,7 @@ end
 (𝕣::FNRepeat)(@nospecialize(𝕨), @nospecialize(𝕩)) =
   convert(Bool, 𝕣.𝕘(𝕨, 𝕩)) ? 𝕣.𝕗(𝕨, 𝕩) : 𝕩
 
-type(𝕨::None, 𝕩::FNRepeat) = 3.0
+type(𝕩::FNRepeat) = 3.0
 
 bqnrepeat′ = M2N(bqnrepeat)
 @override(bqnrepeat′)
