@@ -164,7 +164,10 @@ function bqnscan(𝕘, 𝕗)
                   size(𝕨) == () && ndims(𝕩) == 1 ||
                   size(𝕨)[1:1] == size(𝕩)[1:1]))
     if 𝕨 == none
-      accumulate(𝕗, 𝕩, dims=ndims(𝕩))
+      # Any here is to allow heterogenous scans... try this: ≡`↕2‿2
+      res = Array{Any}(undef, size(𝕩))
+      accumulate!(𝕗, res, 𝕩, dims=ndims(𝕩))
+      res
     elseif size(𝕨) == ()
       accumulate(𝕗, 𝕩, dims=ndims(𝕩), init=𝕨)
     else
