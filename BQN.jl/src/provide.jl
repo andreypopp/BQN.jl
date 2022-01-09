@@ -9,6 +9,8 @@ import ..M1D, ..M1I, ..M1N, ..M2D, ..M2I, ..M2N
 
 const to = TimerOutput()
 
+@nospecialize
+
 bqnadd(𝕨::None, 𝕩) = 𝕩
 bqnadd(𝕨::Char, 𝕩::Number) = @timeit_debug to "bqnadd" 𝕨 + Int(𝕩)
 bqnadd(𝕨::Number, 𝕩::Char) = @timeit_debug to "bqnadd" Int(𝕨) + 𝕩
@@ -281,6 +283,8 @@ function bqnfillby(𝕘, 𝕗)
   end
   FN(run, 𝕘, 𝕣, 𝕗)
 end
+
+@specialize
 
 const value = [
   bqntype,

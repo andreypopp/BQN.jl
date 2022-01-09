@@ -67,6 +67,8 @@ end
 set_override(func::M1N) = set_override(func, name=string(Symbol(func.run)))
 set_override(func::M2N) = set_override(func, name=string(Symbol(func.run)))
 
+@nospecialize
+
 # ⌊ bqnmin floor
 bqnmin(𝕨::None, 𝕩::Number) = @timeit_debug to "bqnminM" floor(𝕩)
 bqnmin(𝕨::None, 𝕩::AbstractArray) = @timeit_debug to "bqnminM" floor.(𝕩)
@@ -124,7 +126,6 @@ bqngt(𝕨::Number, 𝕩::Char) = 0
 set_override(bqngt)
 
 # ≠ bqnneq length
-@nospecialize
 bqnneq(𝕨::None, 𝕩::Vector) = @timeit_debug to "bqnneqM" length(𝕩)
 bqnneq(𝕨::None, 𝕩::AbstractArray) = begin
   @timeit_debug to "bqnneqM" begin
@@ -138,7 +139,6 @@ bqnneq(𝕨::Number, 𝕩::Number) = @timeit_debug "bqnneq" Int(𝕨 != 𝕩)
 bqnneq(𝕨::AbstractArray, 𝕩::Number) = @timeit_debug "bqnneq" 𝕨 .!= 𝕩
 bqnneq(𝕨::Number, 𝕩::AbstractArray) = @timeit_debug "bqnneq" 𝕨 .!= 𝕩
 bqnneq(𝕨::AbstractArray, 𝕩::AbstractArray) = @timeit_debug "bqnneq" 𝕨 .!= 𝕩
-@specialize
 
 set_override(bqnneq)
 
@@ -150,21 +150,17 @@ bqngte(𝕨::AbstractArray, 𝕩::AbstractArray) = @timeit_debug "bqngte" 𝕨 .
 
 set_override(bqngte)
 
-@nospecialize
 # ⊢ bqnright identity
 bqnright(𝕨::None, 𝕩) = 𝕩
 # ⊢ bqnright right
 bqnright(𝕨, 𝕩) = 𝕩
-@specialize
 
 set_override(bqnright)
 
-@nospecialize
 # ⊣ bqnleft identity
 bqnleft(𝕨::None, 𝕩) = 𝕩
 # ⊣ bqnleft left
 bqnleft(𝕨, 𝕩) = 𝕨
-@specialize
 
 set_override(bqnleft)
 
@@ -184,34 +180,28 @@ bqnpair(𝕨, 𝕩) = [𝕨, 𝕩]
 set_override(bqnpair)
 
 # ↑ bqntake
-@nospecialize
 bqntake(𝕨::Number, 𝕩::AbstractArray) =
   @timeit_debug "bqntake" 𝕩[1:Int(𝕨)]
 bqntake(𝕨::Number, 𝕩::AbstractString) =
   @timeit_debug "bqntake" 𝕩[1:Int(𝕨)]
-@specialize
 
 set_override(bqntake)
 
 # ↓ bqndrop
-@nospecialize
 bqndrop(𝕨::Number, 𝕩::AbstractArray) =
   @timeit_debug "bqndrop" 𝕩[Int(𝕨)+1:end]
 bqndrop(𝕨::Number, 𝕩::AbstractString) =
   @timeit_debug "bqndrop" 𝕩[Int(𝕨)+1:end]
-@specialize
 
 set_override(bqndrop)
 
 # ⊏ bqnselect
-@nospecialize
 bqnselect(𝕨::AbstractArray{Int}, 𝕩::AbstractArray) =
   @timeit_debug "bqnselect" selectdim(𝕩, ndims(𝕩), 𝕨 .+ 1)
 bqnselect(𝕨::AbstractArray, 𝕩::AbstractArray) =
   bqnselect(map(Int, 𝕨), 𝕩)
 bqnselect(𝕨::AbstractArray, 𝕩::AbstractString) =
   bqnselect(𝕨, collect(𝕩))
-@specialize
 
 set_override(bqnselect)
 
@@ -256,12 +246,10 @@ struct FNEach
   𝕗::Any
 end
 
-@nospecialize
 (𝕣::FNEach)(𝕨::AbstractArray, 𝕩::AbstractArray) = 𝕣.𝕗.(𝕨, 𝕩)
 (𝕣::FNEach)(𝕨::AbstractString, 𝕩::AbstractString) = 𝕣.𝕗.(collect(𝕨), collect(𝕩))
 (𝕣::FNEach)(𝕨::AbstractArray, 𝕩::AbstractString) = 𝕣.𝕗.(𝕨, collect(𝕩))
 (𝕣::FNEach)(𝕨::AbstractString, 𝕩::AbstractArray) = 𝕣.𝕗.(collect(𝕨), 𝕩)
-@specialize
 
 Provide.bqntype′(𝕨::None, 𝕩::FNEach) = 3
 
@@ -276,10 +264,8 @@ struct FNFold
   𝕗::Any
 end
 
-@nospecialize
 (𝕣::FNFold)(𝕨::None, 𝕩) = foldr(𝕣.𝕗, 𝕩)
 (𝕣::FNFold)(𝕨, 𝕩) = foldr(𝕣.𝕗, 𝕩, init=𝕨)
-@specialize
 
 Provide.bqntype′(𝕨::None, 𝕩::FNFold) = 3
 
@@ -295,9 +281,7 @@ struct FNAtop
   𝕗::Union{Any,Nothing}
 end
 
-@nospecialize
 (𝕣::FNAtop)(𝕨, 𝕩) = 𝕣.𝕗(none, 𝕣.𝕘(𝕨, 𝕩))
-@specialize
 
 Provide.bqntype′(𝕨::None, 𝕩::FNAtop) = 3
 
@@ -314,10 +298,8 @@ struct FNOver
   𝕗::Union{Any,Nothing}
 end
 
-@nospecialize
 (𝕣::FNOver)(𝕨, 𝕩) =
   𝕨===none ? 𝕣.𝕗(none, 𝕣.𝕘(none, 𝕩)) : 𝕣.𝕗(𝕣.𝕘(none, 𝕨), 𝕣.𝕘(none, 𝕩))
-@specialize
 
 Provide.bqntype′(𝕨::None, 𝕩::FNOver) = 3
 
@@ -334,10 +316,8 @@ struct FNBefore
   𝕗::Union{Any,Nothing}
 end
 
-@nospecialize
 (𝕣::FNBefore)(𝕨, 𝕩) =
   𝕨===none ? 𝕣.𝕘(𝕣.𝕗(none, 𝕩), 𝕩) : 𝕣.𝕘(𝕣.𝕗(none, 𝕨), 𝕩)
-@specialize
 
 Provide.bqntype′(𝕨::None, 𝕩::FNBefore) = 3
 
@@ -354,10 +334,8 @@ struct FNAfter
   𝕗::Union{Any,Nothing}
 end
 
-@nospecialize
 (𝕣::FNAfter)(𝕨, 𝕩) =
   𝕨===none ? 𝕣.𝕗(𝕩, 𝕣.𝕘(none, 𝕩)) : 𝕣.𝕗(𝕨, 𝕣.𝕘(none, 𝕩))
-@specialize
 
 Provide.bqntype′(𝕨::None, 𝕩::FNAfter) = 3
 
@@ -374,12 +352,10 @@ struct FNChoose
   𝕗::Union{Any,Nothing}
 end
 
-@nospecialize
 (𝕣::FNChoose)(𝕨, 𝕩) = begin
   𝕗 = Provide.bqnpick(𝕣.𝕗(𝕨, 𝕩), 𝕣.𝕘)
   𝕗(𝕨, 𝕩)
 end
-@specialize
 
 Provide.bqntype′(𝕨::None, 𝕩::FNChoose) = 3
 
@@ -403,6 +379,8 @@ Provide.bqntype′(𝕨::None, 𝕩::FNRepeat) = 3
 
 const bqnrepeat′ = M2N(bqnrepeat)
 set_override(bqnrepeat′)
+
+@specialize
 
 export runtime_0
 
