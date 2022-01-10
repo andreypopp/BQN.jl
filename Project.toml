@@ -1,6 +1,10 @@
 [deps]
+AbstractTrees = "1520ce14-60c1-5f80-bbc7-55ef81b5835c"
 BQN = "5a3513b3-c1e8-44a7-9045-f18e488440b6"
 Debugger = "31a5f54b-26ea-5ae9-a837-f05ce5417438"
+MethodAnalysis = "85b6ec6f-f7df-4429-9514-a64bcd9ee824"
 Revise = "295af30f-e4ad-537b-8983-00126c2a3abe"
+SnoopCompile = "aa65fe97-06da-5843-b5b1-d5d13cad87d2"
+SnoopCompileCore = "e2b509da-e806-4183-be48-004708413034"
 Test = "8dfed614-e22c-5e08-85e1-65c5234f0b40"
 TimerOutputs = "a759f4b9-e2f1-59dc-863e-4aeb61b1ea8f"
