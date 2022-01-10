@@ -7,7 +7,7 @@ end
 
 import TimerOutputs: @timeit_debug
 import TimerOutputs
-import ..run, ..BQNError
+import ..run, ..BQNError, ..type
 import ..none, ..None, ..F, ..FN, ..TR2D, ..TR3D, ..TR3O, ..M1N, ..M2N, ..Runtime0
 
 const to = TimerOutputs.TimerOutput()
@@ -106,6 +106,8 @@ function decompose(𝕨, 𝕩)
     elseif isa(𝕩, Runtime0.FNConst);      [ 4.0, 𝕩.𝕗, 𝕩.𝕣]
     elseif isa(𝕩, Runtime0.FNSwap);       [ 4.0, 𝕩.𝕗, 𝕩.𝕣]
     elseif isa(𝕩, Runtime0.FNEach);       [ 4.0, 𝕩.𝕗, 𝕩.𝕣]
+    elseif isa(𝕩, FNEach);                [ 4.0, 𝕩.𝕗, 𝕩.𝕣]
+    elseif isa(𝕩, FNFold);                [ 4.0, 𝕩.𝕗, 𝕩.𝕣]
     elseif isa(𝕩, F) && 𝕩.𝕗 !== nothing;  [ 4.0, 𝕩.𝕗, 𝕩.𝕣]
     elseif isa(𝕩, FN) && 𝕩.𝕗 !== nothing; [ 4.0, 𝕩.𝕗, 𝕩.𝕣]
     elseif isa(𝕩, F);                     [ 1.0, 𝕩]
@@ -589,6 +591,72 @@ bqndropone(𝕨::Int, 𝕩::AbstractArray) =
   else 𝕩[1:end+𝕨] end
 
 @override(bqndrop)
+
+# ¨ bqneach
+bqneach(𝕘::Nothing, 𝕗) = FNEach(bqneach′, 𝕗, bqneach0(𝕘, 𝕗))
+bqneach′ = M1N(bqneach)
+
+struct FNEach
+  𝕣::M1N
+  𝕗::Any
+  𝕗0::Any
+end
+
+(𝕣::FNEach)(𝕨::None, 𝕩::AbstractArray) =
+  ndims(𝕩) == 0 ? fill(𝕣.𝕗(𝕨, 𝕩[1])) : 𝕣.𝕗.(Ref(𝕨), 𝕩)
+(𝕣::FNEach)(𝕨::None, 𝕩::Number) =
+  fill(𝕣.𝕗(𝕨, 𝕩))
+(𝕣::FNEach)(𝕨, 𝕩) =
+  𝕣.𝕗0(𝕨, 𝕩)
+
+type(𝕩::FNEach) = 3.0
+
+@override(bqneach′)
+
+# ´ bqnfold
+bqnfold(𝕘::Nothing, 𝕗) = FNFold(bqnfold′, 𝕗)
+bqnfold′ = M1N(bqnfold)
+
+bqnidentity(𝕗) =
+  if     𝕗 == bqnadd; 0
+  elseif 𝕗 == bqnsub; 0
+  elseif 𝕗 == bqnmul; 1
+  elseif 𝕗 == bqndiv; 1
+  elseif 𝕗 == bqnpow; 1
+  elseif 𝕗 == bqnnot; 1
+  elseif 𝕗 == bqnmin; Inf
+  elseif 𝕗 == bqnmax; -Inf
+  elseif 𝕗 == bqnor; 0
+  elseif 𝕗 == bqnand; 1
+  elseif 𝕗 == bqnneq; 0
+  elseif 𝕗 == bqneq; 1
+  elseif 𝕗 == bqngt; 0
+  elseif 𝕗 == bqngte; 1
+  else throw(BQNError("No identity found"))
+  end
+
+struct FNFold
+  𝕣::M1N
+  𝕗::Any
+end
+
+(𝕣::FNFold)(𝕨, 𝕩) = begin
+  if ndims(𝕩) != 1
+    throw(BQNError("´: Argument must be a list"))
+  end
+  if 𝕨 == none
+    if isempty(𝕩); bqnidentity(𝕣.𝕗)
+    else; foldr(𝕣.𝕗, 𝕩)
+    end
+  else
+    foldr(𝕣.𝕗, 𝕩, init=𝕨)
+  end
+end
+
+type(𝕩::FNFold) = 3.0
+
+@override(bqnfold′)
+
 @specialize
 
 const _runtime_length = length(value)
