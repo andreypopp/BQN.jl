@@ -85,7 +85,21 @@ const value, set_prims, set_inv = run("<none>", R1.value...)
 
 for (idx, name) in enumerate(names)
   name0 = Symbol("$(name.second)0")
-  eval(quote $name0 = $(value[idx]) end)
+  f0 = eval(quote $name0 = $(value[idx]) end)
+  # is_native = (
+  #   isa(f0, Function)
+  #   || isa(f0, FN)
+  #   || isa(f0, M1N)
+  #   || isa(f0, M2N))
+  # if !is_native
+  #   value[idx] = eval(quote
+  #     function(𝕨, 𝕩)
+  #       # label = string($(name.second), " ", typeof(𝕨), " ", typeof(𝕩))
+  #       label = $(name.second)
+  #       @timeit_debug to label $(f0)(𝕨, 𝕩)
+  #     end
+  #   end)
+  # end
 end
 
 prim_ind(𝕨, 𝕩) = get(_runtime_indices, 𝕩, _runtime_length)
@@ -547,6 +561,39 @@ end
 bqnreplicate(𝕨, 𝕩) = bqnreplicate0(𝕨, 𝕩)
 
 @override(bqnreplicate)
+
+# TODO: ⍋ and ⍒ require to implement "Array Ordering"
+# https://mlochbaum.github.io/BQN/doc/order.html#array-ordering
+#
+# # ⍋ bqngradeup
+# bqngradeup(𝕨::None, 𝕩::AbstractArray) =
+#   sortperm(𝕩, lt=bqnlt) .- 1
+# bqngradeup(𝕨, 𝕩) = bqngradeup0(𝕨, 𝕩)
+# @override(bqngradeup)
+
+# # ⍒ bqngradedown
+# bqngradedown(𝕨::None, 𝕩::AbstractArray) =
+#   sortperm(𝕩, rev=true) .- 1
+# bqngradedown(𝕨, 𝕩) = bqngradedown0(𝕨, 𝕩)
+
+# @override(bqngradedown)
+
+# bqnlessthan(𝕨::Number, 𝕩::Number) = 𝕨 < 𝕩
+# bqnlessthan(𝕨::Char, 𝕩::Char) = Int(𝕨) < Int(𝕩)
+# bqnlessthan(𝕨::Char, 𝕩::Number) = false
+# bqnlessthan(𝕨::Number, 𝕩::Char) = true
+# bqnlessthan(𝕨, 𝕩) = begin
+#   𝕨isarr, 𝕩isarr = isa(𝕨, AbstractArray), isa(𝕩, AbstractArray)
+#   if 𝕨isarr && 𝕩isarr
+#     TODO: ...
+#   elseif 𝕨isarr
+#     TODO: ...
+#   elseif 𝕩isarr
+#     TODO: ...
+#   else
+#     @assert false "cannot order $(𝕨) < $(𝕩)"
+#   end
+# end
 
 # » bqnrshift
 bqnrshift(𝕨::Union{Char,Number}, 𝕩::Vector) = begin
