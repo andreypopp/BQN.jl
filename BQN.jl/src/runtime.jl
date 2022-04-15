@@ -309,7 +309,7 @@ bqnabs(𝕨::AbstractArray, 𝕩::AbstractArray) = @along𝕨𝕩(bqnabs, 𝕨, 
 # ¬ bqnnot not
 bqnnot(𝕨::None, 𝕩::Number) = float(+(1 - 𝕩))
 bqnnot(𝕨::None, 𝕩::AbstractArray) = bqnnot.(Ref(none), 𝕩)
-bqnnot(𝕨, 𝕩) = bqncall(bqnnot0, BQNArgs(𝕨, 𝕩))
+bqnnot(𝕨, 𝕩) = bqnadd(1, bqnsub(𝕨, 𝕩))
 
 @override(bqnnot)
 
@@ -465,8 +465,15 @@ end
 @override(bqnselect)
 
 # ∨ bqnor Sort Descending
-bqnor(𝕨::None, 𝕩::Vector) = sort(𝕩, rev=true)
-bqnor(𝕨::None, 𝕩) = bqncall(bqnor0, BQNArgs(𝕨, 𝕩))
+bqnor(𝕨::None, 𝕩) = begin
+  ndims𝕩 = ndims(𝕩)
+  if ndims𝕩 == 0 || isa(𝕩, String)
+    throw(BQNError("∨: Argrument cannot have rank 0"))
+  end
+  if ndims𝕩 == 1; sort(𝕩, lt=bqnarraylt, rev=true)
+  else; sortslices(𝕩, dims=ndims𝕩, lt=bqnarraylt, rev=true)
+  end
+end
 # ∨ bqnor Or
 bqnor(𝕨::Number, 𝕩::Number) = float((𝕨+𝕩)-(𝕨*𝕩))
 bqnor(𝕨::Number, 𝕩::AbstractArray) = @along𝕩(bqnor, 𝕨, 𝕩)
@@ -476,8 +483,15 @@ bqnor(𝕨::AbstractArray, 𝕩::AbstractArray) = @along𝕨𝕩(bqnor, 𝕨, �
 @override(bqnor)
 
 # ∧ bqnand Sort Ascending
-bqnand(𝕨::None, 𝕩::Vector) = sort(𝕩)
-bqnand(𝕨::None, 𝕩) = bqncall(bqnand0, BQNArgs(𝕨, 𝕩))
+bqnand(𝕨::None, 𝕩) = begin
+  ndims𝕩 = ndims(𝕩)
+  if ndims𝕩 == 0
+    throw(BQNError("∧: Argrument cannot have rank 0"))
+  end
+  if ndims𝕩 == 1; sort(𝕩, lt=bqnarraylt)
+  else; sortslices(𝕩, dims=ndims𝕩, lt=bqnarraylt)
+  end
+end
 # ∧ bqnand And
 bqnand(𝕨::Number, 𝕩::Number) = float(𝕨*𝕩)
 bqnand(𝕨::Number, 𝕩::AbstractArray) = @along𝕩(bqnand, 𝕨, 𝕩)
@@ -555,45 +569,108 @@ bqnreplicate(𝕨::AbstractArray, 𝕩::AbstractArray) = begin
   z
 end
 bqnreplicate(𝕨::None, 𝕩::AbstractArray) = begin
-  if ndims(𝕩) != 1; return bqncall(bqnreplicate0, BQNArgs(𝕨, 𝕩)) end
+  if ndims(𝕩) != 1
+    throw(BQNError("/: Argument must have rank 1"))
+  end
   bqnreplicate(𝕩, 0.0:(length(𝕩) - 1))
 end
-bqnreplicate(𝕨, 𝕩) = bqncall(bqnreplicate0, BQNArgs(𝕨, 𝕩))
+bqnreplicate(𝕨, 𝕩) = begin
+  bqncall(bqnreplicate0, BQNArgs(𝕨, 𝕩))
+end
 
 @override(bqnreplicate)
 
-# TODO: ⍋ and ⍒ require to implement "Array Ordering"
-# https://mlochbaum.github.io/BQN/doc/order.html#array-ordering
-#
-# # ⍋ bqngradeup
-# bqngradeup(𝕨::None, 𝕩::AbstractArray) =
-#   sortperm(𝕩, lt=bqnlt) .- 1
-# bqngradeup(𝕨, 𝕩) = bqngradeup0(𝕨, 𝕩)
-# @override(bqngradeup)
+# ⍋ bqngradeup
+bqngradeup(𝕨::None, 𝕩::AbstractArray) = begin
+  ndims𝕩 = ndims(𝕩)
+  if ndims𝕩 == 1
+    float.(sortperm(𝕩, lt=bqnarraylt) .- 1)
+  else
+    float.(sortperm(collect(eachslice(𝕩, dims=ndims𝕩)), lt=bqnarraylt) .- 1)
+  end
+end
+bqngradeup(𝕨, 𝕩) =
+  bqncall(bqngradeup0, BQNArgs(𝕨, 𝕩))
 
-# # ⍒ bqngradedown
-# bqngradedown(𝕨::None, 𝕩::AbstractArray) =
-#   sortperm(𝕩, rev=true) .- 1
-# bqngradedown(𝕨, 𝕩) = bqngradedown0(𝕨, 𝕩)
+@override(bqngradeup)
 
-# @override(bqngradedown)
+# ⍒ bqngradedown
+bqngradedown(𝕨::None, 𝕩::AbstractArray) = begin
+  ndims𝕩 = ndims(𝕩)
+  if ndims𝕩 == 1
+    float.(sortperm(𝕩, lt=bqnarraylt, rev=true) .- 1)
+  else
+    float.(sortperm(collect(eachslice(𝕩, dims=ndims𝕩)), lt=bqnarraylt, rev=true) .- 1)
+  end
+end
+bqngradedown(𝕨, 𝕩) =
+  bqncall(bqngradedown0, BQNArgs(𝕨, 𝕩))
 
-# bqnlessthan(𝕨::Number, 𝕩::Number) = 𝕨 < 𝕩
-# bqnlessthan(𝕨::Char, 𝕩::Char) = Int(𝕨) < Int(𝕩)
-# bqnlessthan(𝕨::Char, 𝕩::Number) = false
-# bqnlessthan(𝕨::Number, 𝕩::Char) = true
-# bqnlessthan(𝕨, 𝕩) = begin
-#   𝕨isarr, 𝕩isarr = isa(𝕨, AbstractArray), isa(𝕩, AbstractArray)
-#   if 𝕨isarr && 𝕩isarr
-#     TODO: ...
-#   elseif 𝕨isarr
-#     TODO: ...
-#   elseif 𝕩isarr
-#     TODO: ...
-#   else
-#     @assert false "cannot order $(𝕨) < $(𝕩)"
-#   end
-# end
+@override(bqngradedown)
+
+bqnarraylt(𝕨, 𝕩) =
+  bqnarrayord(𝕨, 𝕩) == -1
+
+#  1 ←-→ 𝕨 > 𝕩
+# -1 ←-→ 𝕨 < 𝕩
+#  - ←-→ 𝕨 ≡ 𝕩
+bqnarrayord(𝕨::Number, 𝕩::Number) =
+  if 𝕨 == 𝕩; return 0
+  elseif 𝕨 > 𝕩; return 1
+  else; return -1 end
+bqnarrayord(𝕨::Char, 𝕩::Char) =
+  if 𝕨 == 𝕩; return 0
+  elseif 𝕨 > 𝕩; return 1
+  else; return -1 end
+bqnarrayord(𝕨::Char, 𝕩::Number) = 1
+bqnarrayord(𝕨::Number, 𝕩::Char) = -1
+bqnarrayord(𝕨, 𝕩) = begin
+  @nospecialize
+  𝕨isarr, 𝕩isarr = isa(𝕨, AbstractArray), isa(𝕩, AbstractArray)
+  if 𝕨isarr && 𝕩isarr
+    𝕨size, 𝕩size = size(𝕨), size(𝕩)
+    if 𝕨size == 𝕩size
+      for idx in eachindex(𝕨)
+        m = bqnarrayord(𝕨[idx], 𝕩[idx])
+        if m != 0; return m end
+      end
+      return 0
+    else
+      return bqnarrayord2(𝕨, 𝕩)
+    end
+  elseif 𝕨isarr
+    m = bqnarrayord(𝕨, fill(𝕩))
+    return m == 0 ? 1 : m
+  elseif 𝕩isarr
+    m = bqnarrayord(fill(𝕨), 𝕩)
+    return m == 0 ? -1 : m
+  else
+    throw(BQNError("Invalid comparison"))
+  end
+end
+
+function bqnarrayord2(𝕨, 𝕩)
+  @nospecialize
+  𝕨size, 𝕩size = size(𝕨), size(𝕩)
+  rankdiff = length(𝕨size) - length(𝕩size)
+  𝕨, 𝕩 =
+    if rankdiff < 0
+      reshape(𝕨, (𝕨size..., fill(1, (-rankdiff,))...)), 𝕩
+    elseif rankdiff > 0
+      𝕨, reshape(𝕩, (𝕩size..., fill(1, (rankdiff,))...))
+    else
+      𝕨, 𝕩
+    end
+  𝕨keys, 𝕩keys = keys(𝕨), keys(𝕩)
+  for (𝕨k, 𝕩k) in zip(𝕨keys, 𝕩keys)
+    if 𝕨k[length(𝕨k)] != 𝕩k[length(𝕩k)]
+      return 𝕨k[length(𝕨k)] > 𝕩k[length(𝕩k)] ? -1 : 1
+    end
+    m = bqnarrayord(𝕨[𝕨k], 𝕩[𝕩k])
+    if m != 0; return m end
+  end
+  return 𝕨size > 𝕩size ? 1 : -1
+end
 
 # » bqnrshift
 bqnrshift(𝕨::Union{Char,Number}, 𝕩::Vector) = begin
