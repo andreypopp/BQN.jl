@@ -84,6 +84,7 @@ const indices = Dict{String, Int}(name.second => idx
 const value, set_prims, set_inv = run("<none>", R1.value...)
 
 for (idx, name) in enumerate(names)
+  name00 = Symbol("$(name.second)00")
   name0 = Symbol("$(name.second)0")
   f0 = eval(quote $name0 = $(value[idx]) end)
   # is_native = (
@@ -92,13 +93,16 @@ for (idx, name) in enumerate(names)
   #   || isa(f0, M1N)
   #   || isa(f0, M2N))
   # if !is_native
-  #   value[idx] = eval(quote
-  #     function(𝕨, 𝕩)
+  #   eval(quote
+  #     function $name0(𝕨, 𝕩)
   #       # label = string($(name.second), " ", typeof(𝕨), " ", typeof(𝕩))
   #       label = $(name.second)
-  #       @timeit_debug to label $(f0)(𝕨, 𝕩)
+  #       @timeit_debug to label bqncall($(f0), BQNArgs(𝕨, 𝕩))
   #     end
   #   end)
+  #   value[idx] = eval(quote $name0 end)
+  # else
+  #   eval(quote $name0 = $name00 end)
   # end
 end
 
@@ -589,8 +593,22 @@ bqngradeup(𝕨::None, 𝕩::AbstractArray) = begin
     float.(sortperm(collect(eachslice(𝕩, dims=ndims𝕩)), lt=bqnarraylt) .- 1)
   end
 end
-bqngradeup(𝕨, 𝕩) =
-  bqncall(bqngradeup0, BQNArgs(𝕨, 𝕩))
+bqngradeup(𝕨, 𝕩) = begin
+  if isa(𝕨, AbstractArray) && isa(𝕩, AbstractArray) && ndims(𝕨) == 1 && ndims(𝕩) == 1
+    res = Float64[]
+    for x in 𝕩
+      c = 0.0
+      for w in 𝕨
+        if bqnarraylt(x, w); break end
+        c = c + 1.0
+      end
+      push!(res, c)
+    end
+    res
+  else
+    bqncall(bqngradeup0, BQNArgs(𝕨, 𝕩))
+  end
+end
 
 @override(bqngradeup)
 
