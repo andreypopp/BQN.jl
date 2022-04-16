@@ -7,10 +7,8 @@ end
 
 import TimerOutputs: @timeit_debug
 import TimerOutputs
-import ..run, ..BQNError, ..type, ..BQNArgs, ..bqncall
+import ..run, ..BQNError, ..type, ..BQNArgs, ..bqncall, ..to
 import ..none, ..None, ..F, ..FN, ..TR2D, ..TR3D, ..TR3O, ..M1N, ..M2N, ..Runtime0
-
-const to = TimerOutputs.TimerOutput()
 
 const names = ["+" => "bqnadd",
                "-" => "bqnsub",

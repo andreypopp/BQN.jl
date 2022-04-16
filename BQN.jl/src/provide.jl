@@ -3,11 +3,9 @@ module Provide
 
 using TimerOutputs
 
-import ..none, ..None, ..BQNError, ..type, ..bqncall, ..BQNArgs
+import ..none, ..None, ..BQNError, ..type, ..bqncall, ..BQNArgs, ..to
 import ..F, ..FN, ..TR2D, ..TR3D, ..TR3O
 import ..M1D, ..M1I, ..M1N, ..M2D, ..M2I, ..M2N
-
-const to = TimerOutput()
 
 @nospecialize
 
@@ -75,10 +73,10 @@ function bqncatch(𝕘, 𝕗)
 end
 
 bqneq(𝕨::None, @nospecialize(𝕩::AbstractArray)) =
-  @timeit_debug to "bqneqM" ndims(𝕩)
+  @timeit_debug to "Provide.bqneqM" ndims(𝕩)
 bqneq(𝕨::None, @nospecialize(𝕩)) = 0.0
 bqneq(@nospecialize(𝕨), @nospecialize(𝕩)) =
-  @timeit_debug to "bqneq" float(𝕨 == 𝕩)
+  @timeit_debug to "Provide.bqneq" float(𝕨 == 𝕩)
 
 bqnlte(𝕨, 𝕩) = float(𝕨 <= 𝕩)
 bqnlte(𝕨::Number, 𝕩::Char) = 1.0
@@ -96,7 +94,7 @@ bqndeshape(𝕨::None, @nospecialize(𝕩)) =
 
 function bqndeshape(𝕨::AbstractArray, 𝕩::AbstractArray)
   @nospecialize
-  @timeit_debug to "bqndeshape" begin
+  @timeit_debug to "Provide.bqndeshape" begin
   size = reverse(Tuple(Int(x) for x in 𝕨))
   if size == Base.size(𝕩); return 𝕩 end
   reshape(𝕩, size)
@@ -105,7 +103,7 @@ end
 
 function bqndeshape(𝕨::AbstractArray, 𝕩::Any)
   @nospecialize
-  @timeit_debug to "bqndeshape" begin
+  @timeit_debug to "Provide.bqndeshape" begin
   @assert length(𝕨) == 0
   collect(𝕩)
   end
@@ -116,7 +114,7 @@ bqnpick(𝕨::Float64, @nospecialize(𝕩::AbstractArray)) =
   bqnpick(Int(𝕨), 𝕩)
 function bqnpick(𝕨::Int64, 𝕩::AbstractArray)
   @nospecialize
-  @timeit_debug to "bqnpick" begin
+  @timeit_debug to "Provide.bqnpick" begin
   if 𝕨 >= 0; 𝕩[𝕨 + 1] else 𝕩[end + (𝕨 + 1)] end
   end
 end
@@ -125,7 +123,7 @@ bqnpick(𝕨::None, @nospecialize(𝕩::AbstractArray)) =
 # TODO: get rid of collect, this is slow!
 bqnpick(𝕨::None, 𝕩) = 𝕩
 
-bqnwindow(𝕨, 𝕩) = @timeit_debug to "bqnwindow" [x for x in 0:(𝕩-1)]
+bqnwindow(𝕨, 𝕩) = @timeit_debug to "Provide.bqnwindow" [x for x in 0:(𝕩-1)]
 
 function bqntable(𝕘, 𝕗)
   @nospecialize
@@ -133,7 +131,7 @@ function bqntable(𝕘, 𝕗)
   # TODO: need to get rid of calls to collect() here, instead need to iterate
   # over graphemes for Strings
   run = function(args::BQNArgs)
-    @timeit_debug to "bqntable" begin
+    @timeit_debug to "Provide.bqntable" begin
       if args.𝕨 === none
         𝕩 = if !isa(args.𝕩, AbstractArray); collect(args.𝕩) else args.𝕩 end
         [@notimeit(bqncall(𝕗, BQNArgs(none, x))) for x in 𝕩]
@@ -154,7 +152,7 @@ function bqnscan(𝕘, 𝕗)
   @assert 𝕘 === nothing
   𝕣 = bqnscan
   run = function(args::BQNArgs)
-    @timeit_debug to "bqnscan" begin
+    @timeit_debug to "Provide.bqnscan" begin
     bqnassert(
               "`: Argument cannot have rank 0",
               Int(ndims(args.𝕩) != 0))
@@ -194,7 +192,7 @@ bqnlog(𝕨::None, 𝕩::Number) = log(ℯ, 𝕩)
 bqnlog(𝕨::Number, 𝕩::Number) = log(𝕨, 𝕩)
 
 function bqngrouplen(𝕨, 𝕩::AbstractArray)
-  @timeit_debug to "bqngrouplen" begin
+  @timeit_debug to "Provide.bqngrouplen" begin
   order = []
   lengths = Dict{Int,Float64}()
   max𝕩 = -1.0
@@ -213,7 +211,7 @@ function bqngrouplen(𝕨, 𝕩::AbstractArray)
 end
 
 function bqngroupord(𝕨, 𝕩::AbstractArray)
-  @timeit_debug to "bqngroupord" begin
+  @timeit_debug to "Provide.bqngroupord" begin
   indices = [[] for _ in 1:length(𝕨)]
   for (idx, x) in enumerate(𝕩)
     if x < 0; continue end

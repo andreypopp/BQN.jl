@@ -3,10 +3,8 @@ module Runtime0
 import TimerOutputs
 import TimerOutputs: @timeit_debug
 
-to = TimerOutputs.TimerOutput()
-
 import ..run, ..none, ..type, ..None, ..FN, ..M1N, ..M2N, ..Provide
-import ..bqncall, ..BQNArgs
+import ..bqncall, ..BQNArgs, ..to
 
 names = ['⌊' => "bqnmin",
          '⌈' => "bqnmax",
@@ -130,7 +128,7 @@ bqngt(𝕨::Number, 𝕩::Char) = 0.0
 # ≠ bqnneq length
 bqnneq(𝕨::None, 𝕩::Vector) = float(length(𝕩))
 bqnneq(𝕨::None, 𝕩::AbstractArray) = begin
-  @timeit_debug to "bqnneqM" begin
+  @timeit_debug to "Runtime0.bqnneqM" begin
   size𝕩 = size(𝕩)
   float(size𝕩 != () ? size𝕩[end] : 1)
   end
@@ -269,7 +267,7 @@ type(𝕩::FNFold) = 3.0
 
 # ∘ bqnatop
 bqnatop(@nospecialize(𝕘), @nospecialize(𝕗)) =
-  @timeit_debug to "bqnatop" FNAtop(𝕘, bqnatop′, 𝕗)
+  @timeit_debug to "Runtime0.bqnatop" FNAtop(𝕘, bqnatop′, 𝕗)
 
 struct FNAtop
   𝕘::Union{Any,Nothing}
@@ -287,7 +285,7 @@ bqnatop′ = M2N(bqnatop)
 
 # ○ bqnover
 bqnover(@nospecialize(𝕘), @nospecialize(𝕗)) =
-  @timeit_debug to "bqnover" FNOver(𝕘, bqnover′, 𝕗)
+  @timeit_debug to "Runtime0.bqnover" FNOver(𝕘, bqnover′, 𝕗)
 
 struct FNOver
   𝕘::Union{Any,Nothing}
@@ -309,7 +307,7 @@ bqnover′ = M2N(bqnover)
 
 # ⊸ bqnbefore
 bqnbefore(@nospecialize(𝕘), @nospecialize(𝕗)) =
-  @timeit_debug to "bqnbefore" FNBefore(𝕘, bqnbefore′, 𝕗)
+  @timeit_debug to "Runtime0.bqnbefore" FNBefore(𝕘, bqnbefore′, 𝕗)
 
 struct FNBefore
   𝕘::Union{Any,Nothing}
@@ -331,7 +329,7 @@ bqnbefore′ = M2N(bqnbefore)
 
 # ⟜ bqnafter
 bqnafter(@nospecialize(𝕘), @nospecialize(𝕗)) =
-  @timeit_debug to "bqnafter" FNAfter(𝕘, bqnafter′, 𝕗)
+  @timeit_debug to "Runtime0.bqnafter" FNAfter(𝕘, bqnafter′, 𝕗)
 
 struct FNAfter
   𝕘::Union{Any,Nothing}
@@ -353,7 +351,7 @@ bqnafter′ = M2N(bqnafter)
 
 # ◶ bqnchoose
 bqnchoose(@nospecialize(𝕘), @nospecialize(𝕗)) =
-  @timeit_debug to "bqnchoose" FNChoose(𝕘, bqnchoose′, 𝕗)
+  @timeit_debug to "Runtime0.bqnchoose" FNChoose(𝕘, bqnchoose′, 𝕗)
 
 struct FNChoose
   𝕘::Union{Any,Nothing}
@@ -373,7 +371,7 @@ bqnchoose′ = M2N(bqnchoose)
 
 # ⍟ bqnrepeat
 bqnrepeat(@nospecialize(𝕘), @nospecialize(𝕗)) =
-  @timeit_debug to "bqnrepeat" FNRepeat(𝕘, bqnrepeat′, 𝕗)
+  @timeit_debug to "Runtime0.bqnrepeat" FNRepeat(𝕘, bqnrepeat′, 𝕗)
 
 struct FNRepeat
   𝕘::Union{Any,Nothing}

@@ -4,6 +4,7 @@ import TimerOutputs: @timeit_debug, @notimeit
 
 const runto = TimerOutputs.TimerOutput()
 const to = TimerOutputs.TimerOutput()
+const xto = TimerOutputs.TimerOutput()
 
 """ BQN error."""
 struct BQNError <: Exception
@@ -268,27 +269,27 @@ function run_code(vm::VM, frame::Frame, pc::Int64)
   while true
     instr = vm.code[pc + 1]
     if instr == 0x00 # PUSH
-      @timeit_debug to "PUSH" begin
+      @timeit_debug xto "PUSH" begin
       pc += 1
       @inbounds v = vm.consts[vm.code[pc + 1] + 1]
       push!(stack, v)
       end
     elseif instr == 0x01 # DFND
-      @timeit_debug to "DFND" begin
+      @timeit_debug xto "DFND" begin
       pc += 1
       @inbounds block = vm.blocks[vm.code[pc + 1] + 1]
       push!(stack, @notimeit run_block(vm, frame, block))
       end
     elseif instr == 0x06 # POPS
-      @timeit_debug to "POPS" begin
+      @timeit_debug xto "POPS" begin
       pop!(stack)
       end
     elseif instr == 0x07 # RETN
-      @timeit_debug to "RETN" begin
+      @timeit_debug xto "RETN" begin
       return pop!(stack)
       end
     elseif instr == 0x0B # ARRO
-      @timeit_debug to "ARRO" begin
+      @timeit_debug xto "ARRO" begin
       pc += 1
       @inbounds n = vm.code[pc + 1]
       # try to "infer" the type
@@ -313,7 +314,7 @@ function run_code(vm::VM, frame::Frame, pc::Int64)
       push!(stack, v)
       end
     elseif instr == 0x0C # ARRM
-      @timeit_debug to "ARRM" begin
+      @timeit_debug xto "ARRM" begin
       pc += 1
       @inbounds n = vm.code[pc + 1]
       v = Refs.RefList(Int(n))
@@ -323,19 +324,19 @@ function run_code(vm::VM, frame::Frame, pc::Int64)
       push!(stack, v)
       end
     elseif instr == 0x10 # FN1C
-      @timeit_debug to "FN1C" begin
+      @timeit_debug xto "FN1C" begin
       s, x = pop!(stack), pop!(stack)
       v = @notimeit bqncall(s, BQNArgs(none, x))
       push!(stack, v)
       end
     elseif instr == 0x11 # FN2C
-      @timeit_debug to "FN2C" begin
+      @timeit_debug xto "FN2C" begin
       w, s, x = pop!(stack), pop!(stack), pop!(stack)
       v = @notimeit bqncall(s, BQNArgs(w, x))
       push!(stack, v)
       end
     elseif instr == 0x12 # FN1O
-      @timeit_debug to "FN10" begin
+      @timeit_debug xto "FN10" begin
       s, x = pop!(stack), pop!(stack)
       if x !== none
         v = @notimeit bqncall(s, BQNArgs(none, x))
@@ -345,7 +346,7 @@ function run_code(vm::VM, frame::Frame, pc::Int64)
       end
       end
     elseif instr == 0x13 # FN2O
-      @timeit_debug to "FN20" begin
+      @timeit_debug xto "FN20" begin
       w, s, x = pop!(stack), pop!(stack), pop!(stack)
       if x !== none
         v = @notimeit bqncall(s, BQNArgs(w, x))
@@ -355,32 +356,32 @@ function run_code(vm::VM, frame::Frame, pc::Int64)
       end
       end
     elseif instr == 0x14 # TR2D
-      @timeit_debug to "TR2D" begin
+      @timeit_debug xto "TR2D" begin
       h, 𝕘 = pop!(stack), pop!(stack)
       push!(stack, TR2D(h, 𝕘))
       end
     elseif instr == 0x15 # TR3D
-      @timeit_debug to "TR3D" begin
+      @timeit_debug xto "TR3D" begin
       𝕘, h, 𝕗 = pop!(stack), pop!(stack), pop!(stack)
       push!(stack, TR3D(h, 𝕘, 𝕗))
       end
     elseif instr == 0x17 # TR3O
-      @timeit_debug to "TR3O" begin
+      @timeit_debug xto "TR3O" begin
       𝕘, h, 𝕗 = pop!(stack), pop!(stack), pop!(stack)
       push!(stack, TR3O(h, 𝕘, 𝕗))
       end
     elseif instr == 0x1A # MD1C
-      @timeit_debug to "MD1C" begin
+      @timeit_debug xto "MD1C" begin
       f, r = pop!(stack), pop!(stack)
       push!(stack, @notimeit bqncall(r, BQNArgs(nothing, f)))
       end
     elseif instr == 0x1B # MD2C
-      @timeit_debug to "MD2C" begin
+      @timeit_debug xto "MD2C" begin
       f, r, g = pop!(stack), pop!(stack), pop!(stack)
       push!(stack, @notimeit bqncall(r, BQNArgs(g, f)))
       end
     elseif instr == 0x20 # VARO
-      @timeit_debug to "VARO" begin
+      @timeit_debug xto "VARO" begin
       pc += 1
       @inbounds d = vm.code[pc + 1]
       pc += 1
@@ -391,7 +392,7 @@ function run_code(vm::VM, frame::Frame, pc::Int64)
       push!(stack, Refs.getv(ref))
       end
     elseif instr == 0x21 # VARM
-      @timeit_debug to "VARM" begin
+      @timeit_debug xto "VARM" begin
       pc += 1
       @inbounds d = vm.code[pc + 1]
       pc += 1
@@ -402,7 +403,7 @@ function run_code(vm::VM, frame::Frame, pc::Int64)
       push!(stack, ref)
       end
     elseif instr == 0x22 # VARU
-      @timeit_debug to "VARU" begin
+      @timeit_debug xto "VARU" begin
       pc += 1
       @inbounds d = vm.code[pc + 1]
       pc += 1
@@ -414,30 +415,30 @@ function run_code(vm::VM, frame::Frame, pc::Int64)
       push!(stack, Refs.getv(ref))
       end
     elseif instr == 0x2C # NOTM
-      @timeit_debug to "NOTM" begin
+      @timeit_debug xto "NOTM" begin
       push!(stack, Refs.RefNot())
       end
     elseif instr == 0x30 # SETN
-      @timeit_debug to "SETN" begin
+      @timeit_debug xto "SETN" begin
       ref, value = pop!(stack), pop!(stack)
       Refs.setn!(ref, value)
       push!(stack, value)
       end
     elseif instr == 0x31 # SETU
-      @timeit_debug to "SETU" begin
+      @timeit_debug xto "SETU" begin
       ref, value = pop!(stack), pop!(stack)
       Refs.setu!(ref, value)
       push!(stack, value)
       end
     elseif instr == 0x32 # SETM
-      @timeit_debug to "SETM" begin
+      @timeit_debug xto "SETM" begin
       ref, 𝕗, 𝕩 = pop!(stack), pop!(stack), pop!(stack)
       value = @notimeit bqncall(𝕗, BQNArgs(Refs.getv(ref), 𝕩))
       Refs.setu!(ref, value)
       push!(stack, value)
       end
     elseif instr == 0x33 # SETC
-      @timeit_debug to "SETC" begin
+      @timeit_debug xto "SETC" begin
       ref, 𝕗 = pop!(stack), pop!(stack)
       value = @notimeit bqncall(𝕗, BQNArgs(none, Refs.getv(ref)))
       Refs.setu!(ref, value)
@@ -594,19 +595,14 @@ end
 """ Reset all performance timers."""
 function reset_timers!()
   TimerOutputs.reset_timer!(to)
+  TimerOutputs.reset_timer!(xto)
   TimerOutputs.reset_timer!(runto)
-  TimerOutputs.reset_timer!(Provide.to)
-  TimerOutputs.reset_timer!(Runtime0.to)
-  TimerOutputs.reset_timer!(Runtime.to)
   nothing
 end
 
 """ Enable performance timers."""
 function enable_timers!()
   TimerOutputs.enable_debug_timings(BQN)
-  TimerOutputs.enable_debug_timings(BQN.Provide)
-  TimerOutputs.enable_debug_timings(BQN.Runtime0)
-  TimerOutputs.enable_debug_timings(BQN.Runtime)
   nothing
 end
 
