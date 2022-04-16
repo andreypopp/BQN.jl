@@ -7,7 +7,7 @@ end
 
 import TimerOutputs: @timeit_debug
 import TimerOutputs
-import ..run, ..BQNError, ..type, ..BQNArgs, ..bqncall, ..to
+import ..run, ..BQNError, ..type, ..to
 import ..none, ..None, ..F, ..FN, ..TR2D, ..TR3D, ..TR3O, ..M1N, ..M2N, ..Runtime0
 
 const names = ["+" => "bqnadd",
@@ -136,7 +136,7 @@ function decompose(𝕨, 𝕩)
   end
 end
 
-bqncall(set_prims, BQNArgs(none, [decompose, prim_ind]))
+set_prims(none, [decompose, prim_ind])
 
 runtime(n::Int64) = value[n + 1]
 
@@ -367,7 +367,7 @@ bqngte(𝕨::AbstractArray, 𝕩::AbstractArray) = @along𝕨𝕩(bqngte, 𝕨, 
 @override(bqngte)
 
 # > bqngt
-bqngt(𝕨::None, 𝕩) = bqncall(bqngt0, BQNArgs(𝕨, 𝕩))
+bqngt(𝕨::None, 𝕩) = bqngt0(𝕨, 𝕩)
 # > bqngt greater than
 bqngt(𝕨::Number, 𝕩::Number) = float(𝕨 > 𝕩)
 bqngt(𝕨::Char, 𝕩::Char) = float(𝕨 > 𝕩)
@@ -405,7 +405,7 @@ bqnwindow(𝕨::None, 𝕩::Number) = begin
   if !isinteger(𝕩); throw(BQNError("Expected non-negative integer")); end
   Float64[0.0:(𝕩-1.0)...]
 end
-bqnwindow(𝕨, 𝕩) = bqncall(bqnwindow0, BQNArgs(𝕨, 𝕩)) # TODO: ...
+bqnwindow(𝕨, 𝕩) = bqnwindow0(𝕨, 𝕩) # TODO: ...
 
 @override(bqnwindow)
 
@@ -457,7 +457,7 @@ bqnselect(𝕨::Number, 𝕩::AbstractArray) = begin
   size𝕩 = size(𝕩)
   selectdim(𝕩, ndims(𝕩), makeidx(𝕨, length(size𝕩), size𝕩))
 end
-bqnselect(𝕨, 𝕩) = bqncall(bqnselect0, BQNArgs(𝕨, 𝕩))
+bqnselect(𝕨, 𝕩) = bqnselect0(𝕨, 𝕩)
 
 makeidx(idx::Number, d::Int, size::Tuple) = begin
   idx′ = Int(idx)
@@ -504,10 +504,10 @@ bqnand(𝕨::AbstractArray, 𝕩::AbstractArray) = @along𝕨𝕩(bqnand, 𝕨, 
 
 # ⊑ bqnpick
 bqnpick(𝕨::None, 𝕩::Number) = 𝕩
-bqnpick(𝕨::None, 𝕩) = bqncall(bqnpick0, BQNArgs(𝕨, 𝕩))
+bqnpick(𝕨::None, 𝕩) = bqnpick0(𝕨, 𝕩)
 bqnpick(𝕨::Number, 𝕩::Vector) = 
   if 𝕨 >= 0; 𝕩[Int(𝕨) + 1] else 𝕩[end + (Int(𝕨) + 1)] end
-bqnpick(𝕨, 𝕩) = bqncall(bqnpick0, BQNArgs(𝕨, 𝕩))
+bqnpick(𝕨, 𝕩) = bqnpick0(𝕨, 𝕩)
 
 @override(bqnpick)
 
@@ -531,15 +531,15 @@ end
 @override(bqneq)
 
 # ∾ bqnjoin
-bqnjoin(𝕨::None, 𝕩::Vector) = bqncall(bqnjoin0, BQNArgs(𝕨, 𝕩))
+bqnjoin(𝕨::None, 𝕩::Vector) = bqnjoin0(𝕨, 𝕩)
 bqnjoin(𝕨::Union{Number,Char}, 𝕩::Union{Number,Char}) =
   [𝕨, 𝕩]
 bqnjoin(𝕨::Union{Number,Char}, 𝕩::AbstractArray) =
   if ndims(𝕩) < 2; vcat(𝕨, 𝕩)
-  else bqncall(bqnjoin0, BQNArgs(𝕨, 𝕩)) end
+  else bqnjoin0(𝕨, 𝕩) end
 bqnjoin(𝕨::AbstractArray, 𝕩::Union{Number,Char}) =
   if ndims(𝕨) < 2; vcat(𝕨, 𝕩)
-  else bqncall(bqnjoin0, BQNArgs(𝕨, 𝕩)) end
+  else bqnjoin0(𝕨, 𝕩) end
 bqnjoin(𝕨::AbstractArray, 𝕩::AbstractArray) = begin
   if ndims(𝕨) < 2 && ndims(𝕩) < 2; vcat(𝕨, 𝕩)
   elseif length(𝕨) == 0; 𝕩
@@ -547,7 +547,7 @@ bqnjoin(𝕨::AbstractArray, 𝕩::AbstractArray) = begin
   else hcat(𝕨, 𝕩) end
 end
 bqnjoin(𝕨, 𝕩) = begin
-  bqncall(bqnjoin0, BQNArgs(𝕨, 𝕩))
+  bqnjoin0(𝕨, 𝕩)
 end
 
 @override(bqnjoin)
@@ -555,7 +555,7 @@ end
 # / bqnreplicate
 bqnreplicate(𝕨::AbstractArray, 𝕩::AbstractArray) = begin
   ndims𝕨, ndims𝕩 = ndims(𝕨), ndims(𝕩)
-  if !(ndims𝕨 == 1 && ndims𝕩 == 1); return bqncall(bqnreplicate0, BQNArgs(𝕨, 𝕩)) end
+  if !(ndims𝕨 == 1 && ndims𝕩 == 1); return bqnreplicate0(𝕨, 𝕩) end
   if length(𝕨) == 0; return 𝕩 end
   if length(𝕨) != length(𝕩); throw(BQNError("/: length mismatch")) end
   s = 0
@@ -576,9 +576,7 @@ bqnreplicate(𝕨::None, 𝕩::AbstractArray) = begin
   end
   bqnreplicate(𝕩, 0.0:(length(𝕩) - 1))
 end
-bqnreplicate(𝕨, 𝕩) = begin
-  bqncall(bqnreplicate0, BQNArgs(𝕨, 𝕩))
-end
+bqnreplicate(𝕨, 𝕩) = bqnreplicate0(𝕨, 𝕩)
 
 @override(bqnreplicate)
 
@@ -604,7 +602,7 @@ bqngradeup(𝕨, 𝕩) = begin
     end
     res
   else
-    bqncall(bqngradeup0, BQNArgs(𝕨, 𝕩))
+    bqngradeup0(𝕨, 𝕩)
   end
 end
 
@@ -620,7 +618,7 @@ bqngradedown(𝕨::None, 𝕩::AbstractArray) = begin
   end
 end
 bqngradedown(𝕨, 𝕩) =
-  bqncall(bqngradedown0, BQNArgs(𝕨, 𝕩))
+  bqngradedown0(𝕨, 𝕩)
 
 @override(bqngradedown)
 
@@ -699,7 +697,7 @@ end
 bqnrshift(𝕨::None, 𝕩::Vector) =
   # TODO: here we must use fill value
   bqnrshift(0.0, 𝕩)
-bqnrshift(𝕨, 𝕩) = bqncall(bqnrshift0, BQNArgs(𝕨, 𝕩))
+bqnrshift(𝕨, 𝕩) = bqnrshift0(𝕨, 𝕩)
 
 @override(bqnrshift)
 
@@ -714,16 +712,16 @@ end
 bqnlshift(𝕨::None, 𝕩::Vector) =
   # TODO: here we must use fill value
   bqnlshift(0.0, 𝕩)
-bqnlshift(𝕨, 𝕩) = bqncall(bqnlshift0, BQNArgs(𝕨, 𝕩))
+bqnlshift(𝕨, 𝕩) = bqnlshift0(𝕨, 𝕩)
 
 @override(bqnlshift)
 
 # ↓ bqndrop
 bqndrop(𝕨::Number, 𝕩::AbstractArray) = begin
   if ndims(𝕩) == 1; bqndropone(Int(𝕨), 𝕩)
-  else bqncall(bqndrop0, BQNArgs(𝕨, 𝕩)) end
+  else bqndrop0(𝕨, 𝕩) end
 end
-bqndrop(𝕨, 𝕩) = bqncall(bqndrop0, BQNArgs(𝕨, 𝕩))
+bqndrop(𝕨, 𝕩) = bqndrop0(𝕨, 𝕩)
 
 bqndropone(𝕨::Int, 𝕩::AbstractArray) =
   if 𝕨 == 0; 𝕩
@@ -733,7 +731,7 @@ bqndropone(𝕨::Int, 𝕩::AbstractArray) =
 @override(bqndrop)
 
 # ¨ bqneach
-bqneach(𝕘::Nothing, 𝕗) = FNEach(bqneach′, 𝕗, bqncall(bqneach0, BQNArgs(𝕘, 𝕗)))
+bqneach(𝕘::Nothing, 𝕗) = FNEach(bqneach′, 𝕗, bqneach0(𝕘, 𝕗))
 bqneach′ = M1N(bqneach)
 
 struct FNEach
@@ -742,19 +740,12 @@ struct FNEach
   𝕗0::Any
 end
 
-function bqncall(𝕣::FNEach, args::BQNArgs)
-  if args.𝕨 == none && isa(args.𝕩, AbstractArray)
-    if ndims(args.𝕩) == 0
-      fill(bqncall(𝕣.𝕗, BQNArgs(args.𝕨, args.𝕩[1])))
-    else 
-      [bqncall(𝕣.𝕗, BQNArgs(args.𝕨, x)) for x in args.𝕩]
-    end
-  elseif args.𝕨 == none && isa(args.𝕩, Number)
-    fill(bqncall(𝕣.𝕗, args))
-  else
-    bqncall(𝕣.𝕗0, args)
-  end
-end
+(𝕣::FNEach)(𝕨::None, 𝕩::AbstractArray) =
+  ndims(𝕩) == 0 ? fill(𝕣.𝕗(𝕨, 𝕩[1])) : 𝕣.𝕗.(Ref(𝕨), 𝕩)
+(𝕣::FNEach)(𝕨::None, 𝕩::Number) =
+  fill(𝕣.𝕗(𝕨, 𝕩))
+(𝕣::FNEach)(𝕨, 𝕩) =
+  𝕣.𝕗0(𝕨, 𝕩)
 
 type(𝕩::FNEach) = 3.0
 
@@ -787,18 +778,16 @@ struct FNFold
   𝕗::Any
 end
 
-bqncall(𝕣::FNFold, args::BQNArgs) = begin
-  if ndims(args.𝕩) != 1
+(𝕣::FNFold)(𝕨, 𝕩) = begin
+  if ndims(𝕩) != 1
     throw(BQNError("´: Argument must be a list"))
   end
-  if args.𝕨 == none
-    if isempty(args.𝕩)
-      bqnidentity(𝕣.𝕗)
-    else
-      foldr((𝕨, 𝕩) -> bqncall(𝕣.𝕗, BQNArgs(𝕨, 𝕩)), args.𝕩)
+  if 𝕨 == none
+    if isempty(𝕩); bqnidentity(𝕣.𝕗)
+    else; foldr(𝕣.𝕗, 𝕩)
     end
   else
-    foldr((𝕨, 𝕩) -> bqncall(𝕣.𝕗, BQNArgs(𝕨, 𝕩)), args.𝕩, init=args.𝕨)
+    foldr(𝕣.𝕗, 𝕩, init=𝕨)
   end
 end
 

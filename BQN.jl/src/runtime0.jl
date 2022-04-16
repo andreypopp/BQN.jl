@@ -3,8 +3,7 @@ module Runtime0
 import TimerOutputs
 import TimerOutputs: @timeit_debug
 
-import ..run, ..none, ..type, ..None, ..FN, ..M1N, ..M2N, ..Provide
-import ..bqncall, ..BQNArgs, ..to
+import ..run, ..none, ..type, ..None, ..FN, ..M1N, ..M2N, ..Provide, ..to
 
 names = ['⌊' => "bqnmin",
          '⌈' => "bqnmax",
@@ -204,7 +203,7 @@ struct FNConst
   𝕗::Any
 end
 
-bqncall(𝕣::FNConst, args::BQNArgs) = 𝕣.𝕗
+(𝕣::FNConst)(@nospecialize(𝕨), @nospecialize(𝕩)) = 𝕣.𝕗
 
 type(𝕩::FNConst) = 3.0
 
@@ -219,12 +218,8 @@ struct FNSwap
   𝕗::Any
 end
 
-bqncall(𝕣::FNSwap, args::BQNArgs) =
-  if args.𝕨 === none
-    bqncall(𝕣.𝕗, BQNArgs(args.𝕩, args.𝕩))
-  else
-    bqncall(𝕣.𝕗, BQNArgs(args.𝕩, args.𝕨))
-  end
+(𝕣::FNSwap)(𝕨::None, @nospecialize(𝕩)) = 𝕣.𝕗(𝕩, 𝕩)
+(𝕣::FNSwap)(@nospecialize(𝕨), @nospecialize(𝕩)) = 𝕣.𝕗(𝕩, 𝕨)
 
 type(𝕩::FNSwap) = 3.0
 
@@ -239,8 +234,7 @@ struct FNEach
   𝕗::Any
 end
 
-bqncall(𝕣::FNEach, args::BQNArgs) =
-  broadcast((𝕨, 𝕩) -> bqncall(𝕣.𝕗, BQNArgs(𝕨, 𝕩)), args.𝕨, args.𝕩)
+(𝕣::FNEach)(𝕨::AbstractArray, 𝕩::AbstractArray) = 𝕣.𝕗.(𝕨, 𝕩)
 
 type(𝕩::FNEach) = 3.0
 
@@ -255,11 +249,8 @@ struct FNFold
   𝕗::Any
 end
 
-function bqncall(𝕣::FNFold, args::BQNArgs)
-  if args.𝕨 === none; foldr((𝕨, 𝕩) -> bqncall(𝕣.𝕗, BQNArgs(𝕨, 𝕩)), args.𝕩)
-  else; foldr((𝕨, 𝕩) -> bqncall(𝕣.𝕗, BQNArgs(𝕨, 𝕩)), args.𝕩, init=args.𝕨)
-  end
-end
+(𝕣::FNFold)(𝕨::None, 𝕩) = foldr(𝕣.𝕗, 𝕩)
+(𝕣::FNFold)(𝕨, 𝕩) = foldr(𝕣.𝕗, 𝕩, init=𝕨)
 
 type(𝕩::FNFold) = 3.0
 
@@ -275,8 +266,7 @@ struct FNAtop
   𝕗::Union{Any,Nothing}
 end
 
-bqncall(𝕣::FNAtop, args::BQNArgs) =
-  bqncall(𝕣.𝕗, BQNArgs(none, bqncall(𝕣.𝕘, args)))
+(𝕣::FNAtop)(𝕨, 𝕩) = 𝕣.𝕗(none, 𝕣.𝕘(𝕨, 𝕩))
 
 type(𝕩::FNAtop) = 3.0
 
@@ -293,12 +283,8 @@ struct FNOver
   𝕗::Union{Any,Nothing}
 end
 
-bqncall(𝕣::FNOver, args::BQNArgs) =
-  if args.𝕨===none
-    bqncall(𝕣.𝕗, BQNArgs(none, bqncall(𝕣.𝕘, BQNArgs(none, args.𝕩))))
-  else
-    bqncall(𝕣.𝕗, BQNArgs(bqncall(𝕣.𝕘, BQNArgs(none, args.𝕨)), bqncall(𝕣.𝕘, BQNArgs(none, args.𝕩))))
-  end
+(𝕣::FNOver)(𝕨, 𝕩) =
+  𝕨===none ? 𝕣.𝕗(none, 𝕣.𝕘(none, 𝕩)) : 𝕣.𝕗(𝕣.𝕘(none, 𝕨), 𝕣.𝕘(none, 𝕩))
 
 type(𝕩::FNOver) = 3.0
 
@@ -315,12 +301,8 @@ struct FNBefore
   𝕗::Union{Any,Nothing}
 end
 
-bqncall(𝕣::FNBefore, args::BQNArgs) =
-  if args.𝕨 === none
-    bqncall(𝕣.𝕘, BQNArgs(bqncall(𝕣.𝕗, BQNArgs(none, args.𝕩)), args.𝕩))
-  else
-    bqncall(𝕣.𝕘, BQNArgs(bqncall(𝕣.𝕗, BQNArgs(none, args.𝕨)), args.𝕩))
-  end
+(𝕣::FNBefore)(𝕨, 𝕩) =
+  𝕨===none ? 𝕣.𝕘(𝕣.𝕗(none, 𝕩), 𝕩) : 𝕣.𝕘(𝕣.𝕗(none, 𝕨), 𝕩)
 
 type(𝕩::FNBefore) = 3.0
 
@@ -337,12 +319,8 @@ struct FNAfter
   𝕗::Union{Any,Nothing}
 end
 
-bqncall(𝕣::FNAfter, args::BQNArgs) =
-  if args.𝕨===none
-    bqncall(𝕣.𝕗, BQNArgs(args.𝕩, bqncall(𝕣.𝕘, BQNArgs(none, args.𝕩))))
-  else
-    bqncall(𝕣.𝕗, BQNArgs(args.𝕨, bqncall(𝕣.𝕘, BQNArgs(none, args.𝕩))))
-  end
+(𝕣::FNAfter)(𝕨, 𝕩) =
+  𝕨===none ? 𝕣.𝕗(𝕩, 𝕣.𝕘(none, 𝕩)) : 𝕣.𝕗(𝕨, 𝕣.𝕘(none, 𝕩))
 
 type(𝕩::FNAfter) = 3.0
 
@@ -359,9 +337,9 @@ struct FNChoose
   𝕗::Union{Any,Nothing}
 end
 
-bqncall(𝕣::FNChoose, args::BQNArgs) = begin
-  𝕗 = Provide.bqnpick(bqncall(𝕣.𝕗, args), 𝕣.𝕘)
-  bqncall(𝕗, args)
+(𝕣::FNChoose)(𝕨, 𝕩) = begin
+  𝕗 = Provide.bqnpick(𝕣.𝕗(𝕨, 𝕩), 𝕣.𝕘)
+  𝕗(𝕨, 𝕩)
 end
 
 type(𝕩::FNChoose) = 3.0
@@ -379,8 +357,8 @@ struct FNRepeat
   𝕗::Union{Any,Nothing}
 end
 
-bqncall(𝕣::FNRepeat, args::BQNArgs) =
-  convert(Bool, bqncall(𝕣.𝕘, args)) ? bqncall(𝕣.𝕗, args) : args.𝕩
+(𝕣::FNRepeat)(@nospecialize(𝕨), @nospecialize(𝕩)) =
+  convert(Bool, 𝕣.𝕘(𝕨, 𝕩)) ? 𝕣.𝕗(𝕨, 𝕩) : 𝕩
 
 type(𝕩::FNRepeat) = 3.0
 

@@ -197,72 +197,36 @@ type(𝕩::M2N) = 5.0
 type(𝕩::M2D) = 5.0
 type(𝕩::M2I) = 5.0
 
-struct BQNArgs
-  𝕨::Any
-  𝕩::Any
+@nospecialize
+(𝕤::AbstractArray)(𝕨, 𝕩) = 𝕤
+(𝕤::Float64)(𝕨, 𝕩) = 𝕤
+(𝕤::Int)(𝕨, 𝕩) = 𝕤
+(𝕤::Char)(𝕨, 𝕩) = 𝕤
+(𝕤::Bool)(𝕨, 𝕩) = 𝕤
+(𝕤::String)(𝕨, 𝕩) = 𝕤
+(𝕤::F)(𝕨, 𝕩) = run_block_body(𝕤.vm, 𝕤.frame, 𝕤.block,
+                              Args(𝕤, 𝕨, 𝕩, 𝕤.𝕘, 𝕤.𝕗))
+(𝕤::FN)(𝕨, 𝕩) = 𝕤.run(𝕨, 𝕩)
+(𝕤::M1N)(𝕘::Nothing, 𝕗) = 𝕤.run(𝕘, 𝕗)
+(𝕤::M1I)(𝕨, 𝕩) = run_block_body(𝕤.vm, 𝕤.frame, 𝕤.block,
+                                Args(𝕤, 𝕨, 𝕩, nothing, nothing))
+(𝕣::M1D)(𝕘, 𝕗) = F(𝕣.vm, 𝕣.frame, 𝕣.block, 𝕘, 𝕣, 𝕗)
+(𝕤::M2N)(𝕘, 𝕗) = 𝕤.run(𝕘, 𝕗)
+(𝕤::M2I)(𝕨, 𝕩) = run_block_body(𝕤.vm, 𝕤.frame, 𝕤.block,
+                                Args(𝕤, 𝕨, 𝕩, nothing, nothing))
+(𝕣::M2D)(𝕘, 𝕗) = F(𝕣.vm, 𝕣.frame, 𝕣.block, 𝕘, 𝕣, 𝕗)
+(𝕤::TR2D)(𝕨, 𝕩) = 𝕤.h(none, 𝕤.𝕘(𝕨, 𝕩))
+function (𝕤::TR3D)(𝕨, 𝕩)
+  𝕩´ = 𝕤.𝕗(𝕨, 𝕩)
+  𝕨´ = 𝕤.𝕘(𝕨, 𝕩)
+  𝕤.h(𝕨´, 𝕩´)
 end
-
-bqncall(𝕤::Any, args::BQNArgs) = @assert false "not implemented $𝕤"
-bqncall(𝕤::Function, args::BQNArgs) = 𝕤(args.𝕨, args.𝕩)
-bqncall(𝕤::AbstractArray, args::BQNArgs) = 𝕤
-bqncall(𝕤::Float64, args::BQNArgs) = 𝕤
-bqncall(𝕤::Int, args::BQNArgs) = 𝕤
-bqncall(𝕤::Char, args::BQNArgs) = 𝕤
-bqncall(𝕤::Bool, args::BQNArgs) = 𝕤
-bqncall(𝕤::String, args::BQNArgs) = 𝕤
-bqncall(𝕤::F, args::BQNArgs) = run_block_body(𝕤.vm, 𝕤.frame, 𝕤.block,
-                                              Args(𝕤, args.𝕨, args.𝕩, 𝕤.𝕘, 𝕤.𝕗))
-bqncall(𝕤::FN, args::BQNArgs) = 𝕤.run(args)
-bqncall(𝕤::M1N, args::BQNArgs) = 𝕤.run(args.𝕨, args.𝕩)
-bqncall(𝕤::M1I, args::BQNArgs) = run_block_body(𝕤.vm, 𝕤.frame, 𝕤.block,
-                                                Args(𝕤, args.𝕨, args.𝕩, nothing, nothing))
-bqncall(𝕣::M1D, args::BQNArgs) = F(𝕣.vm, 𝕣.frame, 𝕣.block, args.𝕨, 𝕣, args.𝕩)
-bqncall(𝕤::M2N, args::BQNArgs) = 𝕤.run(args.𝕨, args.𝕩)
-bqncall(𝕤::M2I, args::BQNArgs) = run_block_body(𝕤.vm, 𝕤.frame, 𝕤.block,
-                                       Args(𝕤, args.𝕨, args.𝕩, nothing, nothing))
-bqncall(𝕣::M2D, args::BQNArgs) = F(𝕣.vm, 𝕣.frame, 𝕣.block, args.𝕨, 𝕣, args.𝕩)
-bqncall(𝕤::TR2D, args::BQNArgs) = bqncall(𝕤.h, BQNArgs(none, bqncall(𝕤.𝕘, args)))
-function bqncall(𝕤::TR3D, args::BQNArgs)
-  𝕩´ = bqncall(𝕤.𝕗, args)
-  𝕨´ = bqncall(𝕤.𝕘, args)
-  bqncall(𝕤.h, BQNArgs(𝕨´, 𝕩´))
+function (𝕤::TR3O)(𝕨, 𝕩)
+  𝕩´ = 𝕤.𝕗(𝕨, 𝕩)
+  𝕨´ = 𝕤.𝕘 != none ? 𝕤.𝕘(𝕨, 𝕩) : none
+  𝕤.h(𝕨´, 𝕩´)
 end
-function bqncall(𝕤::TR3O, args::BQNArgs)
-  𝕩´ = bqncall(𝕤.𝕗, args)
-  𝕨´ = 𝕤.𝕘 != none ? bqncall(𝕤.𝕘, args) : none
-  bqncall(𝕤.h, BQNArgs(𝕨´, 𝕩´))
-end
-
-# @nospecialize
-# (𝕤::AbstractArray)(𝕨, 𝕩) = 𝕤
-# (𝕤::Float64)(𝕨, 𝕩) = 𝕤
-# (𝕤::Int)(𝕨, 𝕩) = 𝕤
-# (𝕤::Char)(𝕨, 𝕩) = 𝕤
-# (𝕤::Bool)(𝕨, 𝕩) = 𝕤
-# (𝕤::String)(𝕨, 𝕩) = 𝕤
-# (𝕤::F)(𝕨, 𝕩) = run_block_body(𝕤.vm, 𝕤.frame, 𝕤.block,
-#                               Args(𝕤, 𝕨, 𝕩, 𝕤.𝕘, 𝕤.𝕗))
-# (𝕤::FN)(𝕨, 𝕩) = 𝕤.run(𝕨, 𝕩)
-# (𝕤::M1N)(𝕘::Nothing, 𝕗) = 𝕤.run(𝕘, 𝕗)
-# (𝕤::M1I)(𝕨, 𝕩) = run_block_body(𝕤.vm, 𝕤.frame, 𝕤.block,
-#                                 Args(𝕤, 𝕨, 𝕩, nothing, nothing))
-# (𝕣::M1D)(𝕘, 𝕗) = F(𝕣.vm, 𝕣.frame, 𝕣.block, 𝕘, 𝕣, 𝕗)
-# (𝕤::M2N)(𝕘, 𝕗) = 𝕤.run(𝕘, 𝕗)
-# (𝕤::M2I)(𝕨, 𝕩) = run_block_body(𝕤.vm, 𝕤.frame, 𝕤.block,
-#                                 Args(𝕤, 𝕨, 𝕩, nothing, nothing))
-# (𝕣::M2D)(𝕘, 𝕗) = F(𝕣.vm, 𝕣.frame, 𝕣.block, 𝕘, 𝕣, 𝕗)
-# (𝕤::TR2D)(𝕨, 𝕩) = 𝕤.h(none, 𝕤.𝕘(𝕨, 𝕩))
-# function (𝕤::TR3D)(𝕨, 𝕩)
-#   𝕩´ = 𝕤.𝕗(𝕨, 𝕩)
-#   𝕨´ = 𝕤.𝕘(𝕨, 𝕩)
-#   𝕤.h(𝕨´, 𝕩´)
-# end
-# function (𝕤::TR3O)(𝕨, 𝕩)
-#   𝕩´ = 𝕤.𝕗(𝕨, 𝕩)
-#   𝕨´ = 𝕤.𝕘 != none ? 𝕤.𝕘(𝕨, 𝕩) : none
-#   𝕤.h(𝕨´, 𝕩´)
-# end
-# @specialize
+@specialize
 
 function run_code(vm::VM, frame::Frame, pc::Int64)
   stack = []
@@ -326,20 +290,20 @@ function run_code(vm::VM, frame::Frame, pc::Int64)
     elseif instr == 0x10 # FN1C
       @timeit_debug xto "FN1C" begin
       s, x = pop!(stack), pop!(stack)
-      v = @notimeit bqncall(s, BQNArgs(none, x))
+      v = @notimeit s(none, x)
       push!(stack, v)
       end
     elseif instr == 0x11 # FN2C
       @timeit_debug xto "FN2C" begin
       w, s, x = pop!(stack), pop!(stack), pop!(stack)
-      v = @notimeit bqncall(s, BQNArgs(w, x))
+      v = @notimeit s(w, x)
       push!(stack, v)
       end
     elseif instr == 0x12 # FN1O
       @timeit_debug xto "FN10" begin
       s, x = pop!(stack), pop!(stack)
       if x !== none
-        v = @notimeit bqncall(s, BQNArgs(none, x))
+        v = @notimeit s(none, x)
         push!(stack, v)
       else
         push!(stack, none)
@@ -349,7 +313,7 @@ function run_code(vm::VM, frame::Frame, pc::Int64)
       @timeit_debug xto "FN20" begin
       w, s, x = pop!(stack), pop!(stack), pop!(stack)
       if x !== none
-        v = @notimeit bqncall(s, BQNArgs(w, x))
+        v = @notimeit s(w, x)
         push!(stack, v)
       else
         push!(stack, none)
@@ -373,12 +337,12 @@ function run_code(vm::VM, frame::Frame, pc::Int64)
     elseif instr == 0x1A # MD1C
       @timeit_debug xto "MD1C" begin
       f, r = pop!(stack), pop!(stack)
-      push!(stack, @notimeit bqncall(r, BQNArgs(nothing, f)))
+      push!(stack, @notimeit r(nothing, f))
       end
     elseif instr == 0x1B # MD2C
       @timeit_debug xto "MD2C" begin
       f, r, g = pop!(stack), pop!(stack), pop!(stack)
-      push!(stack, @notimeit bqncall(r, BQNArgs(g, f)))
+      push!(stack, @notimeit r(g, f))
       end
     elseif instr == 0x20 # VARO
       @timeit_debug xto "VARO" begin
@@ -433,14 +397,14 @@ function run_code(vm::VM, frame::Frame, pc::Int64)
     elseif instr == 0x32 # SETM
       @timeit_debug xto "SETM" begin
       ref, 𝕗, 𝕩 = pop!(stack), pop!(stack), pop!(stack)
-      value = @notimeit bqncall(𝕗, BQNArgs(Refs.getv(ref), 𝕩))
+      value = @notimeit 𝕗(Refs.getv(ref), 𝕩)
       Refs.setu!(ref, value)
       push!(stack, value)
       end
     elseif instr == 0x33 # SETC
       @timeit_debug xto "SETC" begin
       ref, 𝕗 = pop!(stack), pop!(stack)
-      value = @notimeit bqncall(𝕗, BQNArgs(none, Refs.getv(ref)))
+      value = @notimeit 𝕗(none, Refs.getv(ref))
       Refs.setu!(ref, value)
       push!(stack, value)
       end
@@ -552,7 +516,7 @@ c = run("<none>", C.value...)
 
 """ Compile BQN expression using self-hosted compiler."""
 function compile(src)
-  bqncall(c, BQNArgs(Runtime.value, str(src)))
+  c(Runtime.value, str(src))
 end
 
 """ Compile and eval BQN expression (using self-hosted compiler)."""

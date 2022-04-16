@@ -3,7 +3,7 @@ module Provide
 
 using TimerOutputs
 
-import ..none, ..None, ..BQNError, ..type, ..bqncall, ..BQNArgs, ..to
+import ..none, ..None, ..BQNError, ..type, ..to
 import ..F, ..FN, ..TR2D, ..TR3D, ..TR3O
 import ..M1D, ..M1I, ..M1N, ..M2D, ..M2I, ..M2N
 
@@ -49,11 +49,11 @@ bqnidright(𝕨, 𝕩) = 𝕩
 function bqnvalences(𝕘, 𝕗)
   @nospecialize
   𝕣 = bqnvalences
-  run = function(args::BQNArgs)
-    if args.𝕨 === none
-      bqncall(𝕗, args)
+  run = function(𝕨, 𝕩)
+    if 𝕨 === none
+      𝕗(𝕨, 𝕩)
     else
-      bqncall(𝕘, args)
+      𝕘(𝕨, 𝕩)
     end
   end
   FN(run, 𝕘, 𝕣, 𝕗)
@@ -62,11 +62,11 @@ end
 function bqncatch(𝕘, 𝕗)
   @nospecialize
   𝕣 = bqncatch
-  run = function(args::BQNArgs)
+  run = function(𝕨, 𝕩)
     try
-      𝕗(args)
+      𝕗(𝕨, 𝕩)
     catch e
-      𝕘(args)
+      𝕘(𝕨, 𝕩)
     end
   end
   FN(run, 𝕘, 𝕣, 𝕗)
@@ -130,16 +130,16 @@ function bqntable(𝕘, 𝕗)
   𝕣 = bqntable
   # TODO: need to get rid of calls to collect() here, instead need to iterate
   # over graphemes for Strings
-  run = function(args::BQNArgs)
+  run = function(𝕨, 𝕩)
     @timeit_debug to "Provide.bqntable" begin
-      if args.𝕨 === none
-        𝕩 = if !isa(args.𝕩, AbstractArray); collect(args.𝕩) else args.𝕩 end
-        [@notimeit(bqncall(𝕗, BQNArgs(none, x))) for x in 𝕩]
+      if 𝕨 === none
+        𝕩 = if !isa(𝕩, AbstractArray); collect(𝕩) else 𝕩 end
+        [@notimeit(𝕗(none, x)) for x in 𝕩]
       else
-        𝕨 = if !isa(args.𝕨, AbstractArray); collect(args.𝕨) else args.𝕨 end
-        𝕩 = if !isa(args.𝕩, AbstractArray); collect(args.𝕩) else args.𝕩 end
+        𝕨 = if !isa(𝕨, AbstractArray); collect(𝕨) else 𝕨 end
+        𝕩 = if !isa(𝕩, AbstractArray); collect(𝕩) else 𝕩 end
         rsize = (size(𝕩)..., size(𝕨)...)
-        r = [@notimeit(bqncall(𝕗, BQNArgs(w, x))) for w in 𝕨 for x in 𝕩]
+        r = [@notimeit(𝕗(w, x)) for w in 𝕨 for x in 𝕩]
         reshape(r, rsize)
       end
     end
@@ -151,29 +151,29 @@ function bqnscan(𝕘, 𝕗)
   @nospecialize
   @assert 𝕘 === nothing
   𝕣 = bqnscan
-  run = function(args::BQNArgs)
+  run = function(𝕨, 𝕩::AbstractArray)
     @timeit_debug to "Provide.bqnscan" begin
     bqnassert(
               "`: Argument cannot have rank 0",
-              Int(ndims(args.𝕩) != 0))
+              Int(ndims(𝕩) != 0))
     bqnassert(
               "`: Shape of 𝕨 must match the cell of 𝕩",
-              Int(args.𝕨 == none ||
-                  size(args.𝕨) == () && ndims(args.𝕩) == 1 ||
-                  size(args.𝕨)[1:1] == size(args.𝕩)[1:1]))
-    if args.𝕨 == none
+              Int(𝕨 == none ||
+                  size(𝕨) == () && ndims(𝕩) == 1 ||
+                  size(𝕨)[1:1] == size(𝕩)[1:1]))
+    if 𝕨 == none
       # Any here is to allow heterogenous scans... try this: ≡`↕2‿2
-      res = Array{Any}(undef, size(args.𝕩))
-      accumulate!((𝕨, 𝕩) -> bqncall(𝕗, BQNArgs(𝕨, 𝕩)), res, args.𝕩, dims=ndims(args.𝕩))
+      res = Array{Any}(undef, size(𝕩))
+      accumulate!(𝕗, res, 𝕩, dims=ndims(𝕩))
       res
-    elseif size(args.𝕨) == ()
-      accumulate((𝕨, 𝕩) -> bqncall(𝕗, BQNArgs(𝕨, 𝕩)), args.𝕩, dims=ndims(args.𝕩), init=args.𝕨)
+    elseif size(𝕨) == ()
+      accumulate(𝕗, 𝕩, dims=ndims(𝕩), init=𝕨)
     else
       # Because accumulate() doesn't support init being an array we provide
       # init value by concatenating it over the major dimension with hvncat():
-      ndims𝕩 = ndims(args.𝕩)
-      𝕩 = hvncat(ndims𝕩, args.𝕨, args.𝕩)
-      𝕩 = accumulate((𝕨, 𝕩) -> bqncall(𝕗, BQNArgs(𝕨, 𝕩)), 𝕩, dims=ndims𝕩)
+      ndims𝕩 = ndims(𝕩)
+      𝕩 = hvncat(ndims𝕩, 𝕨, 𝕩)
+      𝕩 = accumulate(𝕗, 𝕩, dims=ndims𝕩)
       # ... but this will produce an extra "row" in this dimension so we
       # produce a view which "cuts" that out with a view over this array:
       # TODO: Revisit that for performance!
@@ -240,9 +240,9 @@ end
 function bqnfillby(𝕘, 𝕗)
   @nospecialize
   𝕣 = bqnfillby
-  run = function(args::BQNArgs)
+  run = function(𝕨, 𝕩)
     @nospecialize
-    bqncall(𝕗, BQNArgs(args.𝕨, args.𝕩))
+    𝕗(𝕨, 𝕩)
   end
   FN(run, 𝕘, 𝕣, 𝕗)
 end
