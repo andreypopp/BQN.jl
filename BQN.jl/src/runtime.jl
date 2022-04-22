@@ -84,24 +84,19 @@ const value, set_prims, set_inv = run("<none>", R1.value...)
 for (idx, name) in enumerate(names)
   name00 = Symbol("$(name.second)00")
   name0 = Symbol("$(name.second)0")
-  f0 = eval(quote $name0 = $(value[idx]) end)
-  # is_native = (
-  #   isa(f0, Function)
-  #   || isa(f0, FN)
-  #   || isa(f0, M1N)
-  #   || isa(f0, M2N))
-  # if !is_native
-  #   eval(quote
-  #     function $name0(𝕨, 𝕩)
-  #       # label = string($(name.second), " ", typeof(𝕨), " ", typeof(𝕩))
-  #       label = $(name.second)
-  #       @timeit_debug to label bqncall($(f0), BQNArgs(𝕨, 𝕩))
-  #     end
-  #   end)
-  #   value[idx] = eval(quote $name0 end)
-  # else
-  #   eval(quote $name0 = $name00 end)
-  # end
+  if false
+    eval(
+      quote
+        $name00 = $(value[idx])
+        function $name0(𝕨, 𝕩)
+          label = $(name.second)
+          @timeit_debug to label $(name00)(𝕨, 𝕩)
+        end
+      end)
+    value[idx] = eval(quote $name0 end)
+  else
+    eval(quote $name0 = $(value[idx]) end)
+  end
 end
 
 prim_ind(𝕨, 𝕩) = get(_runtime_indices, 𝕩, _runtime_length)
@@ -504,12 +499,53 @@ bqnand(𝕨::AbstractArray, 𝕩::AbstractArray) = @along𝕨𝕩(bqnand, 𝕨, 
 
 # ⊑ bqnpick
 bqnpick(𝕨::None, 𝕩::Number) = 𝕩
-bqnpick(𝕨::None, 𝕩) = bqnpick0(𝕨, 𝕩)
+bqnpick(𝕨::None, 𝕩) = begin
+  if ndims(𝕩) == 1
+    if isempty(𝕩)
+      throw(BQNError("⊑: Argument cannot be empty"))
+    end
+    𝕩[1]
+  else
+    bqnpick0(𝕨, 𝕩)
+  end
+end
 bqnpick(𝕨::Number, 𝕩::Vector) = 
   if 𝕨 >= 0; 𝕩[Int(𝕨) + 1] else 𝕩[end + (Int(𝕨) + 1)] end
-bqnpick(𝕨, 𝕩) = bqnpick0(𝕨, 𝕩)
+bqnpick(𝕨, 𝕩) = begin
+  bqnpick0(𝕨, 𝕩)
+end
 
 @override(bqnpick)
+
+bqntake(𝕨::None, 𝕩) = bqntake0(𝕨, 𝕩)
+bqntake(𝕨, 𝕩) = begin
+  if 𝕨 isa Number && 𝕨 >= 0 && ndims(𝕩) == 1
+    𝕨 = Int(𝕨)
+    len𝕩 = length(𝕩)
+    if 𝕨 > length(𝕩)
+      𝕩fill = getfill(𝕩)
+      if 𝕩fill === nothing; return bqntake0(𝕨, 𝕩) end
+      𝕩 = copy(𝕩)
+      resize!(𝕩, 𝕨)
+      for i in (len𝕩 + 1):𝕨
+        @inbounds 𝕩[i] = 𝕩fill
+      end
+      𝕩
+    else
+      𝕩[1:Int(𝕨)]
+    end
+  else
+    bqntake0(𝕨, 𝕩)
+  end
+end
+
+@override(bqntake)
+
+getfill(@nospecialize(𝕩)) =
+  if eltype(𝕩) <: Number; 0.0
+  elseif eltype(𝕩) == Char; ' '
+  else; nothing
+  end
 
 # = bqneq Rank
 bqneq(𝕨::None, 𝕩) = if isa(𝕩, AbstractArray); float(ndims(𝕩)) else 0.0 end
@@ -531,7 +567,18 @@ end
 @override(bqneq)
 
 # ∾ bqnjoin
-bqnjoin(𝕨::None, 𝕩::Vector) = bqnjoin0(𝕨, 𝕩)
+bqnjoin(𝕨::None, 𝕩::Vector{Vector{T}}) where T = begin
+  res = T[]
+  for 𝕩e in 𝕩
+    for 𝕩ee in 𝕩e
+      push!(res, 𝕩ee)
+    end
+  end
+  res
+end
+bqnjoin(𝕨::None, 𝕩::Vector) = begin
+  bqnjoin0(𝕨, 𝕩)
+end
 bqnjoin(𝕨::Union{Number,Char}, 𝕩::Union{Number,Char}) =
   [𝕨, 𝕩]
 bqnjoin(𝕨::Union{Number,Char}, 𝕩::AbstractArray) =
@@ -551,6 +598,92 @@ bqnjoin(𝕨, 𝕩) = begin
 end
 
 @override(bqnjoin)
+
+bqnrevselect(𝕨::None, 𝕩) = begin
+  if ndims(𝕩) == 1
+    map = Dict()
+    Float64[get!(map, 𝕩e, length(map)) for 𝕩e in 𝕩]
+  else
+    bqnrevselect0(𝕨, 𝕩)
+  end
+end
+bqnrevselect(𝕨, 𝕩) = begin
+  bqnrevselect0(𝕨, 𝕩)
+end
+@override(bqnrevselect)
+
+bqnrev(𝕨::None, @nospecialize(𝕩)) = begin
+  if ndims(𝕩) == 1; reverse(𝕩)
+  else; bqnrev0(𝕨, 𝕩)
+  end
+end
+bqnrev(@nospecialize(𝕨), @nospecialize(𝕩)) =
+  bqnrev0(𝕨, 𝕩)
+@override(bqnrev)
+
+bqngroup(𝕨::None, 𝕩) = bqngroup0(𝕨, 𝕩)
+bqngroup(𝕨, 𝕩) = begin
+  ndims𝕩 = ndims(𝕩)
+  if ndims𝕩 == 1 && ndims(𝕨) == 1 && eltype(𝕨) <: Number
+    len𝕨, len𝕩 = length(𝕨), length(𝕩)
+    if !(len𝕨 == len𝕩 || len𝕨 == len𝕩 + 1)
+      throw(BQNError("⊔: ≠𝕨 must be either ≠𝕩 or one bigger"))
+    end
+    if len𝕨 == 0; return [] end
+    len =
+      if len𝕩 == 0 && len𝕨 == 1; 𝕨[end]
+      elseif len𝕨 == len𝕩 + 1
+        max(𝕨[end], maximum(collect(𝕨)[1:len𝕨-1]) + 1)
+      else; maximum(collect(𝕨)) + 1
+      end
+    if len == 0; return [] end
+    groups = [[] for _ in 1:len]
+    for (𝕨e, 𝕩e) in zip(𝕨, 𝕩)
+      if 𝕨e != -1
+        push!(groups[Int(𝕨e) + 1], 𝕩e)
+      end
+    end
+    groups
+  else
+    bqngroup0(𝕨, 𝕩)
+  end
+end
+@override(bqngroup)
+
+bqnmember(𝕨::None, 𝕩) = begin
+  if ndims(𝕩) == 1
+    len𝕩 = length(𝕩)
+    map = Set()
+    res = Float64[]
+    resize!(res, len𝕩)
+    for i in 1:len𝕩
+      @inbounds 𝕩e = 𝕩[i]
+      if 𝕩e in map
+        @inbounds res[i] = 0.0
+      else
+        @inbounds res[i] = 1.0
+        push!(map, 𝕩e)
+      end
+    end
+    res
+  else
+    bqnmember0(𝕨, 𝕩)
+  end
+end
+bqnmember(𝕨, 𝕩) = begin
+  if ndims(𝕨) == 1 && ndims(𝕩) == 1
+    # TODO: O(n×k)
+    res = Float64[]
+    for 𝕨e in 𝕨
+      push!(res,
+            findfirst(x -> x == 𝕨e, 𝕩) === nothing ? 0.0 : 1.0)
+    end
+    res
+  else
+    bqnmember0(𝕨, 𝕩)
+  end
+end
+@override(bqnmember)
 
 # / bqnreplicate
 bqnreplicate(𝕨::AbstractArray, 𝕩::AbstractArray) = begin
@@ -687,17 +820,27 @@ function bqnarrayord2(𝕨, 𝕩)
 end
 
 # » bqnrshift
-bqnrshift(𝕨::Union{Char,Number}, 𝕩::Vector) = begin
-  len𝕩 = length(𝕩)
-  if len𝕩 == 0; 𝕩
-  elseif len𝕩 == 1; [𝕨]
-  else vcat(𝕨, 𝕩[1:end-1])
+bqnrshift(𝕨::Union{Char,Number}, 𝕩::AbstractArray) = begin
+  if ndims(𝕩) == 1
+    len𝕩 = length(𝕩)
+    if len𝕩 == 0; 𝕩
+    elseif len𝕩 == 1; [𝕨]
+    else vcat(𝕨, 𝕩[1:end-1])
+    end
+  else
+    bqnrshift0(𝕨, 𝕩)
   end
 end
-bqnrshift(𝕨::None, 𝕩::Vector) =
-  # TODO: here we must use fill value
-  bqnrshift(0.0, 𝕩)
-bqnrshift(𝕨, 𝕩) = bqnrshift0(𝕨, 𝕩)
+bqnrshift(𝕨::None, 𝕩::AbstractArray) =
+  if ndims(𝕩) == 1
+    # TODO: here we must use fill value
+    bqnrshift(0.0, 𝕩)
+  else
+    bqnrshift0(𝕨, 𝕩)
+  end
+bqnrshift(𝕨, 𝕩) = begin
+  bqnrshift0(𝕨, 𝕩)
+end
 
 @override(bqnrshift)
 

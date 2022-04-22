@@ -543,7 +543,8 @@ using ReplMaker
 
 # TODO: now using the bootstrap compiler, switch to bqn once self-hosted
 # compiler is fast enough.
-import ..bqn0 as bqn
+# import ..bqn0 as bqn
+import ..bqn
 
 function init()
   initrepl(bqn,
@@ -567,6 +568,9 @@ end
 """ Enable performance timers."""
 function enable_timers!()
   TimerOutputs.enable_debug_timings(BQN)
+  TimerOutputs.enable_debug_timings(BQN.Provide)
+  TimerOutputs.enable_debug_timings(BQN.Runtime0)
+  TimerOutputs.enable_debug_timings(BQN.Runtime)
   nothing
 end
 
