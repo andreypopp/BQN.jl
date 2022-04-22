@@ -27,5 +27,13 @@ Then:
 - `make test0` runs the test suite for VM using CBQN hosted compiler
 - `make test` runs the test suite for VM using self hosted compiler
 
+TODO:
+
+- Implement fill elements
+- Implement headers
+- Implement namespaces
+- Runtime performance tuning
+- Compilation latency tuning
+
 [BQN]: https://mlochbaum.github.io/BQN/index.html
 [Julia]: https://julialang.org

@@ -281,4 +281,15 @@ provide(n::Int64) = value[n + 1]
 
 export provide
 
+# for 𝕗 in value
+#   types = [None, Any,
+#            Float64, Int64, Number, Char,
+#            AbstractArray, Vector{Float64}, Vector{Char}]
+#   for 𝕨 in types
+#     for 𝕩 in types
+#       precompile(𝕗, (𝕨, 𝕩))
+#     end
+#   end
+# end
+
 end

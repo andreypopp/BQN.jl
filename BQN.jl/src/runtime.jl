@@ -210,6 +210,14 @@ bqnadd(𝕨::Union{Number,Char}, 𝕩::AbstractArray) = @along𝕩(bqnadd, 𝕨,
 bqnadd(𝕨::AbstractArray, 𝕩::Union{Number,Char}) = @along𝕨(bqnadd, 𝕨, 𝕩)
 bqnadd(𝕨::AbstractArray, 𝕩::AbstractArray) = @along𝕨𝕩(bqnadd, 𝕨, 𝕩)
 
+precompile(bqnadd, (Float64, Float64))
+precompile(bqnadd, (Char, Float64))
+precompile(bqnadd, (Float64, Char))
+precompile(bqnadd, (AbstractArray, AbstractArray))
+precompile(bqnadd, (Float64, Vector{Float64}))
+precompile(bqnadd, (Vector{Float64}, Float64))
+precompile(bqnadd, (Vector{Float64}, Vector{Float64}))
+
 @override(bqnadd)
 
 # - bqnsub minus
@@ -938,5 +946,16 @@ const _runtime_indices = IdDict(𝕗 => idx - 1
                                 for (idx, 𝕗) in enumerate(value))
 
 export runtime
+
+# for 𝕗 in value
+#   types = [None, Any,
+#            Float64, Int64, Number, Char,
+#            AbstractArray, Vector{Float64}, Vector{Char}]
+#   for 𝕨 in types
+#     for 𝕩 in types
+#       precompile(𝕗, (𝕨, 𝕩))
+#     end
+#   end
+# end
 
 end
