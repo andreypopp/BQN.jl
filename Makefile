@@ -11,7 +11,7 @@ test0:
 
 gen0: BQN.jl/src/c.jl BQN.jl/src/r0.jl BQN.jl/src/r1.jl
 
-BQN.jl/src/%.jl:
+BQN.jl/src/%.jl: cjl.bqn
 	rm -f $@
 	./cjl.bqn $(@:BQN.jl/src/%.jl=%) | sed -e 's/^quote/value = begin/g' > $@
 
