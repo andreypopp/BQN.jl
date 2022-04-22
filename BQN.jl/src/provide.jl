@@ -178,7 +178,7 @@ function bqnscan(𝕘, 𝕗)
       # produce a view which "cuts" that out with a view over this array:
       # TODO: Revisit that for performance!
       indices = [(:) for _ in size(𝕩)[1:end - 1]]
-      @view 𝕩[indices..., 2:end]
+      collect(@view 𝕩[indices..., 2:end])
     end
     end
   end
@@ -217,7 +217,7 @@ function bqngroupord(𝕨, 𝕩::AbstractArray)
     if x < 0; continue end
     push!(indices[Int(x) + 1], float(idx) - 1)
   end
-  vcat(indices...)
+  collect(vcat(indices...))
   end
 end
 

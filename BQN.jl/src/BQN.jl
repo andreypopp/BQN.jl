@@ -514,6 +514,32 @@ end
 
 c = run("<none>", C.value...)
 
+module Fmt
+import ..runtime, ..str, ..run
+include("./f.jl")
+
+makefmt = run("<none>", value...)
+
+import ..none, ..None, ..Provide, ..Runtime
+
+function glyph(𝕨::None, @nospecialize(𝕩))
+  idx = get(Runtime._runtime_indices, 𝕩, nothing)
+  idx !== nothing ? Runtime.names[idx+1].first[1] : 'f'
+end
+
+fmtnum(𝕨, 𝕩) =
+  collect(string(𝕩))
+
+fmt0, repr =
+  makefmt(none, [Provide.bqntype, Runtime.decompose, glyph, fmtnum])
+fmt(@nospecialize(v)) =
+  join(x == 0.0 ? ' ' : x for x in fmt0(none, v))
+
+end
+
+fmt = Fmt.fmt
+
+
 """ Compile BQN expression using self-hosted compiler."""
 function compile(src)
   c(Runtime.value, str(src))
@@ -541,15 +567,16 @@ end
 module Repl
 using ReplMaker
 
-# TODO: now using the bootstrap compiler, switch to bqn once self-hosted
-# compiler is fast enough.
-# import ..bqn0 as bqn
+import ..fmt
 import ..bqn
+# import ..bqn0 as bqn
 
 function init()
+  show_function(io::IO, mime::MIME"text/plain", x) = print(io, fmt(x))
   initrepl(bqn,
            prompt_text="BQN) ",
            prompt_color=:blue, 
+           show_function=show_function,
            startup_text=true,
            start_key=')', 
            mode_name="BQN")
@@ -577,7 +604,7 @@ end
 macro bqn_str(src); bqn(src) end
 macro bqn0_str(src); bqn0(src) end
 
-export bqn, bqn0
+export bqn, bqn0, fmt
 export @bqn_str, @bqn0_str
 
 end

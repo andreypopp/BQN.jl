@@ -164,7 +164,7 @@ bqnleft(@nospecialize(𝕨), @nospecialize(𝕩)) = 𝕨
 @override(bqnleft)
 
 # ∾ bqnjoin
-bqnjoin(𝕨::AbstractArray, 𝕩::AbstractArray) = vcat(𝕨, 𝕩)
+bqnjoin(𝕨::AbstractArray, 𝕩::AbstractArray) = collect(vcat(𝕨, 𝕩))
 
 @override(bqnjoin)
 
@@ -187,7 +187,7 @@ bqndrop(𝕨::Number, 𝕩::AbstractArray) = 𝕩[Int(𝕨)+1:end]
 
 # ⊏ bqnselect
 bqnselect(𝕨::AbstractArray{Int}, 𝕩::AbstractArray) =
-  selectdim(𝕩, ndims(𝕩), 𝕨 .+ 1)
+  collect(selectdim(𝕩, ndims(𝕩), 𝕨 .+ 1))
 bqnselect(𝕨::AbstractArray, 𝕩::AbstractArray) =
   bqnselect(map(Int, 𝕨), 𝕩)
 

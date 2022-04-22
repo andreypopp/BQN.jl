@@ -9,7 +9,7 @@ test:
 test0:
 	julia -e 'using BQN; BQN.Tests0.test_all()'
 
-gen0: BQN.jl/src/c.jl BQN.jl/src/r0.jl BQN.jl/src/r1.jl
+gen0: BQN.jl/src/c.jl BQN.jl/src/r0.jl BQN.jl/src/r1.jl BQN.jl/src/f.jl
 
 BQN.jl/src/%.jl: cjl.bqn
 	rm -f $@

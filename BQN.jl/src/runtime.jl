@@ -407,19 +407,19 @@ bqnwindow(𝕨, 𝕩) = bqnwindow0(𝕨, 𝕩) # TODO: ...
 # ⊏ bqnselect
 bqnselect(𝕨::Vector{Float64}, 𝕩::AbstractArray) = begin
   size𝕩 = size(𝕩)
-  selectdim(𝕩, ndims(𝕩), makeidx.(𝕨, length(size𝕩), Ref(size𝕩)))
+  collect(selectdim(𝕩, ndims(𝕩), makeidx.(𝕨, length(size𝕩), Ref(size𝕩))))
 end
 bqnselect(𝕨::SubArray{Float64}, 𝕩::AbstractArray) = begin
   size𝕩 = size(𝕩)
-  selectdim(𝕩, ndims(𝕩), makeidx.(𝕨, length(size𝕩), Ref(size𝕩)))
+  collect(selectdim(𝕩, ndims(𝕩), makeidx.(𝕨, length(size𝕩), Ref(size𝕩))))
 end
 bqnselect(𝕨::Vector{Int}, 𝕩::AbstractArray) = begin
   size𝕩 = size(𝕩)
-  selectdim(𝕩, ndims(𝕩), makeidx.(𝕨, length(size𝕩), Ref(size𝕩)))
+  collect(selectdim(𝕩, ndims(𝕩), makeidx.(𝕨, length(size𝕩), Ref(size𝕩))))
 end
 bqnselect(𝕨::SubArray{Int}, 𝕩::AbstractArray) = begin
   size𝕩 = size(𝕩)
-  selectdim(𝕩, ndims(𝕩), makeidx.(𝕨, length(size𝕩), Ref(size𝕩)))
+  collect(selectdim(𝕩, ndims(𝕩), makeidx.(𝕨, length(size𝕩), Ref(size𝕩))))
 end
 bqnselect(𝕨::AbstractArray, 𝕩::AbstractArray) = begin
   length𝕨, size𝕩, ndims𝕩 = length(𝕨), size(𝕩), ndims(𝕩)
@@ -445,12 +445,12 @@ bqnselect(𝕨::AbstractArray, 𝕩::AbstractArray) = begin
     end
     getindex(𝕩, inds...)
   else
-    selectdim(𝕩, ndims𝕩, makeidx.(𝕨, length(size𝕩), Ref(size𝕩)))
+    collect(selectdim(𝕩, ndims𝕩, makeidx.(𝕨, length(size𝕩), Ref(size𝕩))))
   end
 end
 bqnselect(𝕨::Number, 𝕩::AbstractArray) = begin
   size𝕩 = size(𝕩)
-  selectdim(𝕩, ndims(𝕩), makeidx(𝕨, length(size𝕩), size𝕩))
+  collect(selectdim(𝕩, ndims(𝕩), makeidx(𝕨, length(size𝕩), size𝕩)))
 end
 bqnselect(𝕨, 𝕩) = bqnselect0(𝕨, 𝕩)
 
@@ -523,8 +523,7 @@ bqntake(𝕨, 𝕩) = begin
     𝕨 = Int(𝕨)
     len𝕩 = length(𝕩)
     if 𝕨 > length(𝕩)
-      𝕩fill = getfill(𝕩)
-      if 𝕩fill === nothing; return bqntake0(𝕨, 𝕩) end
+      𝕩fill = 0.0 # TODO: proper fill
       𝕩 = copy(𝕩)
       resize!(𝕩, 𝕨)
       for i in (len𝕩 + 1):𝕨
@@ -540,12 +539,6 @@ bqntake(𝕨, 𝕩) = begin
 end
 
 @override(bqntake)
-
-getfill(@nospecialize(𝕩)) =
-  if eltype(𝕩) <: Number; 0.0
-  elseif eltype(𝕩) == Char; ' '
-  else; nothing
-  end
 
 # = bqneq Rank
 bqneq(𝕨::None, 𝕩) = if isa(𝕩, AbstractArray); float(ndims(𝕩)) else 0.0 end
@@ -582,16 +575,16 @@ end
 bqnjoin(𝕨::Union{Number,Char}, 𝕩::Union{Number,Char}) =
   [𝕨, 𝕩]
 bqnjoin(𝕨::Union{Number,Char}, 𝕩::AbstractArray) =
-  if ndims(𝕩) < 2; vcat(𝕨, 𝕩)
+  if ndims(𝕩) < 2; collect(vcat(𝕨, 𝕩))
   else bqnjoin0(𝕨, 𝕩) end
 bqnjoin(𝕨::AbstractArray, 𝕩::Union{Number,Char}) =
-  if ndims(𝕨) < 2; vcat(𝕨, 𝕩)
+  if ndims(𝕨) < 2; collect(vcat(𝕨, 𝕩))
   else bqnjoin0(𝕨, 𝕩) end
 bqnjoin(𝕨::AbstractArray, 𝕩::AbstractArray) = begin
-  if ndims(𝕨) < 2 && ndims(𝕩) < 2; vcat(𝕨, 𝕩)
+  if ndims(𝕨) < 2 && ndims(𝕩) < 2; collect(vcat(𝕨, 𝕩))
   elseif length(𝕨) == 0; 𝕩
   elseif length(𝕩) == 0; 𝕨
-  else hcat(𝕨, 𝕩) end
+  else collect(hcat(𝕨, 𝕩)) end
 end
 bqnjoin(𝕨, 𝕩) = begin
   bqnjoin0(𝕨, 𝕩)
@@ -825,7 +818,7 @@ bqnrshift(𝕨::Union{Char,Number}, 𝕩::AbstractArray) = begin
     len𝕩 = length(𝕩)
     if len𝕩 == 0; 𝕩
     elseif len𝕩 == 1; [𝕨]
-    else vcat(𝕨, 𝕩[1:end-1])
+    else collect(vcat(𝕨, 𝕩[1:end-1]))
     end
   else
     bqnrshift0(𝕨, 𝕩)

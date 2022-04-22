@@ -42,7 +42,7 @@ SVG ← {∾⟨"Modify←GetHighlights←⊢⋄"⟩∾ •FChars∘∾⟜".bqn"�
   RT∘2, RT∘0, RT∘1
   {𝕩⋄LFC CArg "⟨"∾"⟩"«∾","⊸∾¨'"'(⊣∾∾˜)¨glyphs}
   {𝕩⋄LFC "{"∾"}"∾˜CArg"𝕩"}
-  {𝕩⋄LFC •FChars "f.bqn"}
+  {𝕩⋄LFC •FChars "BQN/src/f.bqn"}
   {𝕩⋄LFC SVG "e"}
   {𝕩⋄LFC SVG "p"}
   ¯1 ↓ · J {"quote "∾𝕩∾" end"}∘T∘Fout∘Comp¨
