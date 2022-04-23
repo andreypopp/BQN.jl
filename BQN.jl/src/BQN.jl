@@ -1,6 +1,5 @@
 module BQN
 import TimerOutputs
-import TimerOutputs: @timeit_debug, @notimeit
 
 const runto = TimerOutputs.TimerOutput()
 const to = TimerOutputs.TimerOutput()
@@ -36,7 +35,7 @@ struct RefList <: BaseRef
   refs::Vector{BaseRef}
   function RefList(n::Int64)
     v = new(Vector{BaseRef}())
-    sizehint!(v.refs, n)
+    resize!(v.refs, n)
     v
   end
 end
@@ -233,119 +232,106 @@ function run_code(vm::VM, frame::Frame, pc::Int64)
   while true
     instr = vm.code[pc + 1]
     if instr == 0x00 # PUSH
-      @timeit_debug xto "PUSH" begin
       pc += 1
       @inbounds v = vm.consts[vm.code[pc + 1] + 1]
       push!(stack, v)
-      end
     elseif instr == 0x01 # DFND
-      @timeit_debug xto "DFND" begin
       pc += 1
       @inbounds block = vm.blocks[vm.code[pc + 1] + 1]
-      push!(stack, @notimeit run_block(vm, frame, block))
-      end
+      push!(stack, run_block(vm, frame, block))
     elseif instr == 0x06 # POPS
-      @timeit_debug xto "POPS" begin
       pop!(stack)
-      end
     elseif instr == 0x07 # RETN
-      @timeit_debug xto "RETN" begin
       return pop!(stack)
-      end
     elseif instr == 0x0B # ARRO
-      @timeit_debug xto "ARRO" begin
       pc += 1
-      @inbounds n = vm.code[pc + 1]
-      # try to "infer" the type
-      # TODO: benchmark if it helps...
-      T = if n > 0
-        len = length(stack)
-        T = typeof(stack[len])
-        for i in 1:(n-1)
-          T′ = typeof(stack[Int(len - i)])
-          if T != T′; T = Any; break end
-        end
-        T
-      else
-        Any
-      end
-      # alloc storage
-      v = T[]
-      sizehint!(v, Int(n))
+      @inbounds n = Int(vm.code[pc + 1])
+      v = []
+      resize!(v, n)
       for i in 1:n
-        push!(v, popat!(stack, Int(length(stack) - n + i)))
+        @inbounds v[i] = popat!(stack, length(stack) - n + i)
       end
       push!(stack, v)
-      end
     elseif instr == 0x0C # ARRM
-      @timeit_debug xto "ARRM" begin
       pc += 1
-      @inbounds n = vm.code[pc + 1]
-      v = Refs.RefList(Int(n))
+      @inbounds n = Int(vm.code[pc + 1])
+      v = Refs.RefList(n)
       for i in 1:n
-        push!(v.refs, popat!(stack, Int(length(stack) - n + i)))
+        @inbounds v.refs[i] = popat!(stack, length(stack) - n + i)
       end
       push!(stack, v)
-      end
     elseif instr == 0x10 # FN1C
-      @timeit_debug xto "FN1C" begin
-      s, x = pop!(stack), pop!(stack)
-      v = @notimeit s(none, x)
+      len = length(stack)
+      @inbounds s = stack[len]
+      @inbounds x = stack[len - 1]
+      resize!(stack, len - 2)
+      v = s(none, x)
       push!(stack, v)
-      end
     elseif instr == 0x11 # FN2C
-      @timeit_debug xto "FN2C" begin
-      w, s, x = pop!(stack), pop!(stack), pop!(stack)
-      v = @notimeit s(w, x)
+      len = length(stack)
+      @inbounds w = stack[len]
+      @inbounds s = stack[len - 1]
+      @inbounds x = stack[len - 2]
+      resize!(stack, len - 3)
+      v = s(w, x)
       push!(stack, v)
-      end
     elseif instr == 0x12 # FN1O
-      @timeit_debug xto "FN10" begin
-      s, x = pop!(stack), pop!(stack)
+      len = length(stack)
+      @inbounds s = stack[len]
+      @inbounds x = stack[len - 1]
+      resize!(stack, len - 2)
       if x !== none
-        v = @notimeit s(none, x)
+        v = s(none, x)
         push!(stack, v)
       else
         push!(stack, none)
-      end
       end
     elseif instr == 0x13 # FN2O
-      @timeit_debug xto "FN20" begin
-      w, s, x = pop!(stack), pop!(stack), pop!(stack)
+      len = length(stack)
+      @inbounds w = stack[len]
+      @inbounds s = stack[len - 1]
+      @inbounds x = stack[len - 2]
+      resize!(stack, len - 3)
       if x !== none
-        v = @notimeit s(w, x)
+        v = s(w, x)
         push!(stack, v)
       else
         push!(stack, none)
       end
-      end
     elseif instr == 0x14 # TR2D
-      @timeit_debug xto "TR2D" begin
-      h, 𝕘 = pop!(stack), pop!(stack)
+      len = length(stack)
+      @inbounds h = stack[len]
+      @inbounds 𝕘 = stack[len - 1]
+      resize!(stack, len - 2)
       push!(stack, TR2D(h, 𝕘))
-      end
     elseif instr == 0x15 # TR3D
-      @timeit_debug xto "TR3D" begin
-      𝕘, h, 𝕗 = pop!(stack), pop!(stack), pop!(stack)
+      len = length(stack)
+      @inbounds 𝕘 = stack[len]
+      @inbounds h = stack[len - 1]
+      @inbounds 𝕗 = stack[len - 2]
+      resize!(stack, len - 3)
       push!(stack, TR3D(h, 𝕘, 𝕗))
-      end
     elseif instr == 0x17 # TR3O
-      @timeit_debug xto "TR3O" begin
-      𝕘, h, 𝕗 = pop!(stack), pop!(stack), pop!(stack)
+      len = length(stack)
+      @inbounds 𝕘 = stack[len]
+      @inbounds h = stack[len - 1]
+      @inbounds 𝕗 = stack[len - 2]
+      resize!(stack, len - 3)
       push!(stack, TR3O(h, 𝕘, 𝕗))
-      end
     elseif instr == 0x1A # MD1C
-      @timeit_debug xto "MD1C" begin
-      f, r = pop!(stack), pop!(stack)
-      push!(stack, @notimeit r(nothing, f))
-      end
+      len = length(stack)
+      @inbounds f = stack[len]
+      @inbounds r = stack[len - 1]
+      resize!(stack, len - 2)
+      push!(stack, r(nothing, f))
     elseif instr == 0x1B # MD2C
-      @timeit_debug xto "MD2C" begin
-      f, r, g = pop!(stack), pop!(stack), pop!(stack)
-      push!(stack, @notimeit r(g, f))
-      end
+      len = length(stack)
+      @inbounds f = stack[len]
+      @inbounds r = stack[len - 1]
+      @inbounds g = stack[len - 2]
+      resize!(stack, len - 3)
+      push!(stack, r(g, f))
     elseif instr == 0x20 # VARO
-      @timeit_debug xto "VARO" begin
       pc += 1
       @inbounds d = vm.code[pc + 1]
       pc += 1
@@ -354,9 +340,7 @@ function run_code(vm::VM, frame::Frame, pc::Int64)
       while d > 0; cenv = cenv.parent; d -= 1 end
       @inbounds ref = cenv.vars[i + 1]
       push!(stack, Refs.getv(ref))
-      end
     elseif instr == 0x21 # VARM
-      @timeit_debug xto "VARM" begin
       pc += 1
       @inbounds d = vm.code[pc + 1]
       pc += 1
@@ -365,9 +349,7 @@ function run_code(vm::VM, frame::Frame, pc::Int64)
       while d > 0; cenv = cenv.parent; d -= 1 end
       @inbounds ref = cenv.vars[i + 1]
       push!(stack, ref)
-      end
     elseif instr == 0x22 # VARU
-      @timeit_debug xto "VARU" begin
       pc += 1
       @inbounds d = vm.code[pc + 1]
       pc += 1
@@ -377,37 +359,39 @@ function run_code(vm::VM, frame::Frame, pc::Int64)
       @inbounds ref = cenv.vars[i + 1]
       # TODO: need to clear the ref
       push!(stack, Refs.getv(ref))
-      end
     elseif instr == 0x2C # NOTM
-      @timeit_debug xto "NOTM" begin
       push!(stack, Refs.RefNot())
-      end
     elseif instr == 0x30 # SETN
-      @timeit_debug xto "SETN" begin
-      ref, value = pop!(stack), pop!(stack)
+      len = length(stack)
+      @inbounds ref = stack[len]
+      @inbounds value = stack[len - 1]
+      resize!(stack, len - 2)
       Refs.setn!(ref, value)
       push!(stack, value)
-      end
     elseif instr == 0x31 # SETU
-      @timeit_debug xto "SETU" begin
-      ref, value = pop!(stack), pop!(stack)
+      len = length(stack)
+      @inbounds ref = stack[len]
+      @inbounds value = stack[len - 1]
+      resize!(stack, len - 2)
       Refs.setu!(ref, value)
       push!(stack, value)
-      end
     elseif instr == 0x32 # SETM
-      @timeit_debug xto "SETM" begin
-      ref, 𝕗, 𝕩 = pop!(stack), pop!(stack), pop!(stack)
-      value = @notimeit 𝕗(Refs.getv(ref), 𝕩)
+      len = length(stack)
+      @inbounds ref = stack[len]
+      @inbounds 𝕗 = stack[len - 1]
+      @inbounds 𝕩 = stack[len - 2]
+      resize!(stack, len - 3)
+      value = 𝕗(Refs.getv(ref), 𝕩)
       Refs.setu!(ref, value)
       push!(stack, value)
-      end
     elseif instr == 0x33 # SETC
-      @timeit_debug xto "SETC" begin
-      ref, 𝕗 = pop!(stack), pop!(stack)
-      value = @notimeit 𝕗(none, Refs.getv(ref))
+      len = length(stack)
+      @inbounds ref = stack[len]
+      @inbounds 𝕗 = stack[len - 1]
+      resize!(stack, len - 2)
+      value = 𝕗(none, Refs.getv(ref))
       Refs.setu!(ref, value)
       push!(stack, value)
-      end
     else
       @error "UNKNOWN BYTECODE 0x$(string(instr, base=16))"
       @assert false
@@ -426,9 +410,10 @@ end
 
 function run_body(vm::VM, parent::Frame, body_idx::Int64, args::Args)
   @inbounds pc, num_vars = vm.bodies[body_idx + 1]
+  inum_vars = Int(num_vars)
   vars = Refs.Ref[]
-  sizehint!(vars, Int(num_vars))
-  for _ in 1:num_vars; push!(vars, Refs.Ref(nothing)) end
+  resize!(vars, inum_vars)
+  for i in 1:inum_vars; vars[i] = Refs.Ref(nothing) end
   if num_vars >= 1 vars[1].value = args.𝕤 end
   if num_vars >= 2 vars[2].value = args.𝕩 end
   if num_vars >= 3 vars[3].value = args.𝕨 end
@@ -491,9 +476,9 @@ end
 
 """ Compile and run the BQN expression (using bootstrap compiler)."""
 function bqn0(src)
-  code, consts, blocks, bodies = @timeit_debug runto "compile0" compile0(src)
+  code, consts, blocks, bodies = compile0(src)
   # @time run(code, boot...)
-  @timeit_debug runto "run0" run(src, code, consts, blocks, bodies)
+  run(src, code, consts, blocks, bodies)
 end
 
 str(s::String) = collect(s)
@@ -547,8 +532,8 @@ end
 
 """ Compile and eval BQN expression (using self-hosted compiler)."""
 function bqn(src)
-  code, consts, blocks, bodies, toks, names = @timeit_debug runto "compile" compile(src)
-  @timeit_debug runto "run" run(src, code, consts, blocks, bodies)
+  code, consts, blocks, bodies, toks, names = compile(src)
+  run(src, code, consts, blocks, bodies)
 end
 
 """ Test suite using the bootstrap compiler."""
