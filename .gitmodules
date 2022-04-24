@@ -1,6 +1,6 @@
 [submodule "BQN"]
 	path = BQN
-	url = git@github.com:mlochbaum/BQN.git
+  url = https://github.com/mlochbaum/BQN.git
 [submodule "CBQN"]
 	path = CBQN
-	url = git@github.com:dzaima/CBQN.git
+  url = https://github.com/dzaima/CBQN.git
