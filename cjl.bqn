@@ -35,7 +35,7 @@ RT ← {
   pr←"runtime_0"‿"provide"{(∾𝕨<⊸(<∘App⟜F¨)⟜(↕≠)¨𝕩)⊏˜(∾𝕩)⊐∾need}○((-1+1=𝕩)⊸↑)inputs
   {"quote ("∾𝕩∾") end"}∘Long Fout pr need _getComp src
 }
-CArg ← {Num↩π⊸=◶Num‿"π" ⋄ J (¯5⊸↓∾𝕩˙)⌾⊑ •FLines "BQN/src/c.bqn"}
+CArg ← {Num↩π⊸=◶Num‿"float(π)" ⋄ J (¯5⊸↓∾𝕩˙)⌾⊑ •FLines "BQN/src/c.bqn"}
 SVG ← {∾⟨"Modify←GetHighlights←⊢⋄"⟩∾ •FChars∘∾⟜".bqn"¨ "../svg"‿𝕩}
 
 •Out (⊑"r"‿"r0"‿"r1"‿"c"‿"cc"‿"f"‿"e"‿"p"⊐⊏)◶⟨

@@ -3,7 +3,7 @@ module Runtime0
 import TimerOutputs
 import TimerOutputs: @timeit_debug
 
-import ..run, ..none, ..type, ..None, ..FN, ..M1N, ..M2N, ..Provide, ..to
+import ..run, ..none, ..type, ..None, ..FN, ..M1N, ..M2N, ..Provide, ..to, ..BQNF
 
 names = ['⌊' => "bqnmin",
          '⌈' => "bqnmax",
@@ -69,64 +69,64 @@ end
 @nospecialize
 
 # ⌊ bqnmin floor
-bqnmin(𝕨::None, 𝕩::Number) = float(floor(𝕩))
-bqnmin(𝕨::None, 𝕩::AbstractArray) = bqnmin.(Ref(𝕨), 𝕩)
+bqnmin(𝕨::None, 𝕩::Float64) = float(floor(𝕩))
+bqnmin(𝕨::None, 𝕩::Array) = bqnmin.(Ref(𝕨), 𝕩)
 # ⌊ bqnmin minimum
-bqnmin(𝕨::Number, 𝕩::Number) = float(min(𝕨, 𝕩))
-bqnmin(𝕨::Number, 𝕩::AbstractArray) = bqnmin.(𝕨, 𝕩)
-bqnmin(𝕨::AbstractArray, 𝕩::Number) = bqnmin.(𝕨, 𝕩)
-bqnmin(𝕨::AbstractArray, 𝕩::AbstractArray) = bqnmin.(𝕨, 𝕩)
+bqnmin(𝕨::Float64, 𝕩::Float64) = float(min(𝕨, 𝕩))
+bqnmin(𝕨::Float64, 𝕩::Array) = bqnmin.(𝕨, 𝕩)
+bqnmin(𝕨::Array, 𝕩::Float64) = bqnmin.(𝕨, 𝕩)
+bqnmin(𝕨::Array, 𝕩::Array) = bqnmin.(𝕨, 𝕩)
 
 @override(bqnmin)
 
 # ⌈ bqnmax ceil
-bqnmax(𝕨::None, 𝕩::Number) =  float(ceil(𝕩))
-bqnmax(𝕨::None, 𝕩::AbstractArray) = bqnmax.(Ref(none), 𝕩)
+bqnmax(𝕨::None, 𝕩::Float64) =  float(ceil(𝕩))
+bqnmax(𝕨::None, 𝕩::Array) = bqnmax.(Ref(none), 𝕩)
 # ⌈ bqnmax maximum
-bqnmax(𝕨::Number, 𝕩::Number) = float(max(𝕨, 𝕩))
-bqnmax(𝕨::Number, 𝕩::AbstractArray) = bqnmax.(𝕨, 𝕩)
-bqnmax(𝕨::AbstractArray, 𝕩::Number) = bqnmax.(𝕨, 𝕩)
-bqnmax(𝕨::AbstractArray, 𝕩::AbstractArray) = bqnmax.(𝕨, 𝕩)
+bqnmax(𝕨::Float64, 𝕩::Float64) = float(max(𝕨, 𝕩))
+bqnmax(𝕨::Float64, 𝕩::Array) = bqnmax.(𝕨, 𝕩)
+bqnmax(𝕨::Array, 𝕩::Float64) = bqnmax.(𝕨, 𝕩)
+bqnmax(𝕨::Array, 𝕩::Array) = bqnmax.(𝕨, 𝕩)
 
 @override(bqnmax)
 
 # | bqnabs absolute value
-bqnabs(𝕨::None, 𝕩::Number) = float(abs(𝕩))
-bqnabs(𝕨::None, 𝕩::AbstractArray) = bqnabs.(Ref(none), 𝕩)
+bqnabs(𝕨::None, 𝕩::Float64) = float(abs(𝕩))
+bqnabs(𝕨::None, 𝕩::Array) = bqnabs.(Ref(none), 𝕩)
 # | bqnabs modulus
-bqnabs(𝕨::Number, 𝕩::Number) = float(mod(𝕩, 𝕨))
-bqnabs(𝕨::AbstractArray, 𝕩::Number) = bqnabs.(𝕩, 𝕨)
-bqnabs(𝕨::Number, 𝕩::AbstractArray) = bqnabs.(𝕩, 𝕨)
-bqnabs(𝕨::AbstractArray, 𝕩::AbstractArray) = bqnabs.(𝕩, 𝕨)
+bqnabs(𝕨::Float64, 𝕩::Float64) = float(mod(𝕩, 𝕨))
+bqnabs(𝕨::Array, 𝕩::Float64) = bqnabs.(𝕩, 𝕨)
+bqnabs(𝕨::Float64, 𝕩::Array) = bqnabs.(𝕩, 𝕨)
+bqnabs(𝕨::Array, 𝕩::Array) = bqnabs.(𝕩, 𝕨)
 
 @override(bqnabs)
 
 # < bqnlt box
 bqnlt(𝕨::None, 𝕩) = fill(𝕩)
 # < bqnlt less than
-bqnlt(𝕨::Number, 𝕩::Number) = float(𝕨 < 𝕩)
-bqnlt(𝕨::AbstractArray, 𝕩::Number) = bqnlt.(𝕨, 𝕩)
-bqnlt(𝕨::Number, 𝕩::AbstractArray) = bqnlt.(𝕨, 𝕩)
-bqnlt(𝕨::AbstractArray, 𝕩::AbstractArray) = bqnlt.(𝕨, 𝕩)
-bqnlt(𝕨::Char, 𝕩::Number) = 0.0
-bqnlt(𝕨::Number, 𝕩::Char) = 1.0
+bqnlt(𝕨::Float64, 𝕩::Float64) = float(𝕨 < 𝕩)
+bqnlt(𝕨::Array, 𝕩::Float64) = bqnlt.(𝕨, 𝕩)
+bqnlt(𝕨::Float64, 𝕩::Array) = bqnlt.(𝕨, 𝕩)
+bqnlt(𝕨::Array, 𝕩::Array) = bqnlt.(𝕨, 𝕩)
+bqnlt(𝕨::Char, 𝕩::Float64) = 0.0
+bqnlt(𝕨::Float64, 𝕩::Char) = 1.0
 
 @override(bqnlt)
 
 # > bqngt greater than
-bqngt(𝕨::Number, 𝕩::Number) = float(𝕨 > 𝕩)
-bqngt(𝕨::AbstractArray, 𝕩::Number) = bqngt.(𝕨, 𝕩)
-bqngt(𝕨::Number, 𝕩::AbstractArray) = bqngt.(𝕨, 𝕩)
-bqngt(𝕨::AbstractArray, 𝕩::AbstractArray) = bqngt.(𝕨, 𝕩)
+bqngt(𝕨::Float64, 𝕩::Float64) = float(𝕨 > 𝕩)
+bqngt(𝕨::Array, 𝕩::Float64) = bqngt.(𝕨, 𝕩)
+bqngt(𝕨::Float64, 𝕩::Array) = bqngt.(𝕨, 𝕩)
+bqngt(𝕨::Array, 𝕩::Array) = bqngt.(𝕨, 𝕩)
 bqngt(𝕨::Char, 𝕩::Char) = bqngt(Int(𝕨), Int(𝕩))
-bqngt(𝕨::Char, 𝕩::Number) = 1.0
-bqngt(𝕨::Number, 𝕩::Char) = 0.0
+bqngt(𝕨::Char, 𝕩::Float64) = 1.0
+bqngt(𝕨::Float64, 𝕩::Char) = 0.0
 
 @override(bqngt)
 
 # ≠ bqnneq length
 bqnneq(𝕨::None, 𝕩::Vector) = float(length(𝕩))
-bqnneq(𝕨::None, 𝕩::AbstractArray) = begin
+bqnneq(𝕨::None, 𝕩::Array) = begin
   @timeit_debug to "Runtime0.bqnneqM" begin
   size𝕩 = size(𝕩)
   float(size𝕩 != () ? size𝕩[end] : 1)
@@ -134,18 +134,18 @@ bqnneq(𝕨::None, 𝕩::AbstractArray) = begin
 end
 bqnneq(𝕨::None, 𝕩) = float(length(𝕩))
 # ≠ bqnneq not equals
-bqnneq(𝕨::Number, 𝕩::Number) = float(𝕨 != 𝕩)
-bqnneq(𝕨::AbstractArray, 𝕩::Number) = bqnneq.(𝕨, 𝕩)
-bqnneq(𝕨::Number, 𝕩::AbstractArray) = bqnneq.(𝕨, 𝕩)
-bqnneq(𝕨::AbstractArray, 𝕩::AbstractArray) = bqnneq.(𝕨, 𝕩)
+bqnneq(𝕨::Float64, 𝕩::Float64) = float(𝕨 != 𝕩)
+bqnneq(𝕨::Array, 𝕩::Float64) = bqnneq.(𝕨, 𝕩)
+bqnneq(𝕨::Float64, 𝕩::Array) = bqnneq.(𝕨, 𝕩)
+bqnneq(𝕨::Array, 𝕩::Array) = bqnneq.(𝕨, 𝕩)
 
 @override(bqnneq)
 
 # ≥ bqngte greater or equal
-bqngte(𝕨::Number, 𝕩::Number) = float(𝕨 >= 𝕩)
-bqngte(𝕨::AbstractArray, 𝕩::Number) = bqngte.(𝕨, 𝕩)
-bqngte(𝕨::Number, 𝕩::AbstractArray) = bqngte.(𝕨, 𝕩)
-bqngte(𝕨::AbstractArray, 𝕩::AbstractArray) = bqngte.(𝕨, 𝕩)
+bqngte(𝕨::Float64, 𝕩::Float64) = float(𝕨 >= 𝕩)
+bqngte(𝕨::Array, 𝕩::Float64) = bqngte.(𝕨, 𝕩)
+bqngte(𝕨::Float64, 𝕩::Array) = bqngte.(𝕨, 𝕩)
+bqngte(𝕨::Array, 𝕩::Array) = bqngte.(𝕨, 𝕩)
 
 @override(bqngte)
 
@@ -164,7 +164,7 @@ bqnleft(@nospecialize(𝕨), @nospecialize(𝕩)) = 𝕨
 @override(bqnleft)
 
 # ∾ bqnjoin
-bqnjoin(𝕨::AbstractArray, 𝕩::AbstractArray) = collect(vcat(𝕨, 𝕩))
+bqnjoin(𝕨::Array, 𝕩::Array) = collect(vcat(𝕨, 𝕩))
 
 @override(bqnjoin)
 
@@ -176,19 +176,19 @@ bqnpair(𝕨, 𝕩) = [𝕨, 𝕩]
 @override(bqnpair)
 
 # ↑ bqntake
-bqntake(𝕨::Number, 𝕩::AbstractArray) = 𝕩[1:Int(𝕨)]
+bqntake(𝕨::Float64, 𝕩::Array) = 𝕩[1:Int(𝕨)]
 
 @override(bqntake)
 
 # ↓ bqndrop
-bqndrop(𝕨::Number, 𝕩::AbstractArray) = 𝕩[Int(𝕨)+1:end]
+bqndrop(𝕨::Float64, 𝕩::Array) = 𝕩[Int(𝕨)+1:end]
 
 @override(bqndrop)
 
 # ⊏ bqnselect
-bqnselect(𝕨::AbstractArray{Int}, 𝕩::AbstractArray) =
+bqnselect(𝕨::Array{Int}, 𝕩::Array) =
   collect(selectdim(𝕩, ndims(𝕩), 𝕨 .+ 1))
-bqnselect(𝕨::AbstractArray, 𝕩::AbstractArray) =
+bqnselect(𝕨::Array, 𝕩::Array) =
   bqnselect(map(Int, 𝕨), 𝕩)
 
 @override(bqnselect)
@@ -198,7 +198,7 @@ bqnconst(𝕘::Nothing, @nospecialize(𝕗)) =
   FNConst(bqnconst′, 𝕗)
 bqnconst′ = M1N(bqnconst)
 
-struct FNConst
+struct FNConst <: BQNF
   𝕣::M1N
   𝕗::Any
 end
@@ -213,7 +213,7 @@ type(𝕩::FNConst) = 3.0
 bqnswap(𝕘::Nothing, @nospecialize(𝕗)) = FNSwap(bqnswap′, 𝕗)
 bqnswap′ = M1N(bqnswap)
 
-struct FNSwap
+struct FNSwap <: BQNF
   𝕣::M1N
   𝕗::Any
 end
@@ -229,12 +229,12 @@ type(𝕩::FNSwap) = 3.0
 bqneach(𝕘::Nothing, @nospecialize(𝕗)) = FNEach(bqneach′, 𝕗)
 bqneach′ = M1N(bqneach)
 
-struct FNEach
+struct FNEach <: BQNF
   𝕣::M1N
   𝕗::Any
 end
 
-(𝕣::FNEach)(𝕨::AbstractArray, 𝕩::AbstractArray) = 𝕣.𝕗.(𝕨, 𝕩)
+(𝕣::FNEach)(𝕨::Array, 𝕩::Array) = 𝕣.𝕗.(𝕨, 𝕩)
 
 type(𝕩::FNEach) = 3.0
 
@@ -244,7 +244,7 @@ type(𝕩::FNEach) = 3.0
 bqnfold(𝕘::Nothing, @nospecialize(𝕗)) = FNFold(bqnfold′, 𝕗)
 bqnfold′ = M1N(bqnfold)
 
-struct FNFold
+struct FNFold <: BQNF
   𝕣::M1N
   𝕗::Any
 end
@@ -260,7 +260,7 @@ type(𝕩::FNFold) = 3.0
 bqnatop(@nospecialize(𝕘), @nospecialize(𝕗)) =
   @timeit_debug to "Runtime0.bqnatop" FNAtop(𝕘, bqnatop′, 𝕗)
 
-struct FNAtop
+struct FNAtop <: BQNF
   𝕘::Union{Any,Nothing}
   𝕣::Union{Any,Nothing}
   𝕗::Union{Any,Nothing}
@@ -277,7 +277,7 @@ bqnatop′ = M2N(bqnatop)
 bqnover(@nospecialize(𝕘), @nospecialize(𝕗)) =
   @timeit_debug to "Runtime0.bqnover" FNOver(𝕘, bqnover′, 𝕗)
 
-struct FNOver
+struct FNOver <: BQNF
   𝕘::Union{Any,Nothing}
   𝕣::Union{Any,Nothing}
   𝕗::Union{Any,Nothing}
@@ -295,7 +295,7 @@ bqnover′ = M2N(bqnover)
 bqnbefore(@nospecialize(𝕘), @nospecialize(𝕗)) =
   @timeit_debug to "Runtime0.bqnbefore" FNBefore(𝕘, bqnbefore′, 𝕗)
 
-struct FNBefore
+struct FNBefore <: BQNF
   𝕘::Union{Any,Nothing}
   𝕣::Union{Any,Nothing}
   𝕗::Union{Any,Nothing}
@@ -313,7 +313,7 @@ bqnbefore′ = M2N(bqnbefore)
 bqnafter(@nospecialize(𝕘), @nospecialize(𝕗)) =
   @timeit_debug to "Runtime0.bqnafter" FNAfter(𝕘, bqnafter′, 𝕗)
 
-struct FNAfter
+struct FNAfter <: BQNF
   𝕘::Union{Any,Nothing}
   𝕣::Union{Any,Nothing}
   𝕗::Union{Any,Nothing}
@@ -331,7 +331,7 @@ bqnafter′ = M2N(bqnafter)
 bqnchoose(@nospecialize(𝕘), @nospecialize(𝕗)) =
   @timeit_debug to "Runtime0.bqnchoose" FNChoose(𝕘, bqnchoose′, 𝕗)
 
-struct FNChoose
+struct FNChoose <: BQNF
   𝕘::Union{Any,Nothing}
   𝕣::Union{Any,Nothing}
   𝕗::Union{Any,Nothing}
@@ -351,7 +351,7 @@ bqnchoose′ = M2N(bqnchoose)
 bqnrepeat(@nospecialize(𝕘), @nospecialize(𝕗)) =
   @timeit_debug to "Runtime0.bqnrepeat" FNRepeat(𝕘, bqnrepeat′, 𝕗)
 
-struct FNRepeat
+struct FNRepeat <: BQNF
   𝕘::Union{Any,Nothing}
   𝕣::Union{Any,Nothing}
   𝕗::Union{Any,Nothing}
@@ -371,8 +371,8 @@ export runtime_0
 
 # for 𝕗 in value
 #   types = [None, Any,
-#            Float64, Int64, Number, Char,
-#            AbstractArray, Vector{Float64}, Vector{Char}]
+#            Float64, Char,
+#            Array, Vector{Float64}, Vector{Char}]
 #   for 𝕨 in types
 #     for 𝕩 in types
 #       precompile(𝕗, (𝕨, 𝕩))

@@ -103,7 +103,9 @@ struct VM
   bodies::Array{Any}
 end
 
-struct F
+abstract type BQNF end
+
+struct F <: BQNF
   vm::VM
   frame::Frame
   block::Any
@@ -114,7 +116,7 @@ end
 
 Base.show(io::IO, f::F) = show(io, "<BQN function>")
 
-struct FN
+struct FN <: BQNF
   run::Function
   𝕘::Union{Any,Nothing}
   𝕣::Union{Any,Nothing}
@@ -123,28 +125,28 @@ end
 
 Base.show(io::IO, f::FN) = show(io, "<BQN native function>")
 
-struct TR2D
+struct TR2D <: BQNF
   h::Any
   𝕘::Any
 end
 
-struct TR3D
-  h::Any
-  𝕘::Any
-  𝕗::Any
-end
-
-struct TR3O
+struct TR3D <: BQNF
   h::Any
   𝕘::Any
   𝕗::Any
 end
 
-struct M1N
+struct TR3O <: BQNF
+  h::Any
+  𝕘::Any
+  𝕗::Any
+end
+
+struct M1N <: BQNF
   run::Function
 end
 
-struct M1I
+struct M1I <: BQNF
   vm::VM
   frame::Frame
   block::Any
@@ -152,7 +154,7 @@ end
 
 Base.show(io::IO, f::M1I) = show(io, "<BQN immediate 1-modifier>")
 
-struct M1D
+struct M1D <: BQNF
   vm::VM
   frame::Frame
   block::Any
@@ -160,11 +162,11 @@ end
 
 Base.show(io::IO, f::M1D) = show(io, "<BQN deferred 1-modifier>")
 
-struct M2N
+struct M2N <: BQNF
   run::Function
 end
 
-struct M2I
+struct M2I <: BQNF
   vm::VM
   frame::Frame
   block::Any
@@ -172,7 +174,7 @@ end
 
 Base.show(io::IO, f::M2I) = show(io, "<BQN immediate 2-modifier>")
 
-struct M2D
+struct M2D <: BQNF
   vm::VM
   frame::Frame
   block::Any
@@ -227,6 +229,24 @@ function (𝕤::TR3O)(𝕨, 𝕩)
 end
 @specialize
 
+function ok(@nospecialize(v))
+  @assert (
+           v isa Array && all(ok(x) for x in v) ||
+           v isa Char         ||
+           v isa Float64      ||
+           v isa Refs.BaseRef ||
+           v isa BQNF         ||
+           v isa None         ||
+           v isa Function
+          ) typeof(v)
+  true
+end
+
+function pushstack!(stack::Vector{Any}, @nospecialize(v))
+  # ok(v)
+  push!(stack, v)
+end
+
 function run_code(vm::VM, frame::Frame, pc::Int64)
   stack = []
   while true
@@ -234,11 +254,11 @@ function run_code(vm::VM, frame::Frame, pc::Int64)
     if instr == 0x00 # PUSH
       pc += 1
       @inbounds v = vm.consts[vm.code[pc + 1] + 1]
-      push!(stack, v)
+      pushstack!(stack, v)
     elseif instr == 0x01 # DFND
       pc += 1
       @inbounds block = vm.blocks[vm.code[pc + 1] + 1]
-      push!(stack, run_block(vm, frame, block))
+      pushstack!(stack, run_block(vm, frame, block))
     elseif instr == 0x06 # POPS
       pop!(stack)
     elseif instr == 0x07 # RETN
@@ -251,7 +271,7 @@ function run_code(vm::VM, frame::Frame, pc::Int64)
       for i in 1:n
         @inbounds v[i] = popat!(stack, length(stack) - n + i)
       end
-      push!(stack, v)
+      pushstack!(stack, v)
     elseif instr == 0x0C # ARRM
       pc += 1
       @inbounds n = Int(vm.code[pc + 1])
@@ -259,78 +279,82 @@ function run_code(vm::VM, frame::Frame, pc::Int64)
       for i in 1:n
         @inbounds v.refs[i] = popat!(stack, length(stack) - n + i)
       end
-      push!(stack, v)
+      pushstack!(stack, v)
     elseif instr == 0x10 # FN1C
       len = length(stack)
       @inbounds s = stack[len]
       @inbounds x = stack[len - 1]
+      # @info s
       resize!(stack, len - 2)
       v = s(none, x)
-      push!(stack, v)
+      pushstack!(stack, v)
     elseif instr == 0x11 # FN2C
       len = length(stack)
       @inbounds w = stack[len]
       @inbounds s = stack[len - 1]
       @inbounds x = stack[len - 2]
+      # @info s
       resize!(stack, len - 3)
       v = s(w, x)
-      push!(stack, v)
+      pushstack!(stack, v)
     elseif instr == 0x12 # FN1O
       len = length(stack)
       @inbounds s = stack[len]
       @inbounds x = stack[len - 1]
+      # @info s
       resize!(stack, len - 2)
       if x !== none
         v = s(none, x)
-        push!(stack, v)
+        pushstack!(stack, v)
       else
-        push!(stack, none)
+        pushstack!(stack, none)
       end
     elseif instr == 0x13 # FN2O
       len = length(stack)
       @inbounds w = stack[len]
       @inbounds s = stack[len - 1]
       @inbounds x = stack[len - 2]
+      # @info "FN20" s w x
       resize!(stack, len - 3)
       if x !== none
         v = s(w, x)
-        push!(stack, v)
+        pushstack!(stack, v)
       else
-        push!(stack, none)
+        pushstack!(stack, none)
       end
     elseif instr == 0x14 # TR2D
       len = length(stack)
       @inbounds h = stack[len]
       @inbounds 𝕘 = stack[len - 1]
       resize!(stack, len - 2)
-      push!(stack, TR2D(h, 𝕘))
+      pushstack!(stack, TR2D(h, 𝕘))
     elseif instr == 0x15 # TR3D
       len = length(stack)
       @inbounds 𝕘 = stack[len]
       @inbounds h = stack[len - 1]
       @inbounds 𝕗 = stack[len - 2]
       resize!(stack, len - 3)
-      push!(stack, TR3D(h, 𝕘, 𝕗))
+      pushstack!(stack, TR3D(h, 𝕘, 𝕗))
     elseif instr == 0x17 # TR3O
       len = length(stack)
       @inbounds 𝕘 = stack[len]
       @inbounds h = stack[len - 1]
       @inbounds 𝕗 = stack[len - 2]
       resize!(stack, len - 3)
-      push!(stack, TR3O(h, 𝕘, 𝕗))
+      pushstack!(stack, TR3O(h, 𝕘, 𝕗))
     elseif instr == 0x1A # MD1C
       len = length(stack)
       @inbounds f = stack[len]
       @inbounds r = stack[len - 1]
       resize!(stack, len - 2)
-      push!(stack, r(nothing, f))
+      pushstack!(stack, r(nothing, f))
     elseif instr == 0x1B # MD2C
       len = length(stack)
       @inbounds f = stack[len]
       @inbounds r = stack[len - 1]
       @inbounds g = stack[len - 2]
       resize!(stack, len - 3)
-      push!(stack, r(g, f))
+      pushstack!(stack, r(g, f))
     elseif instr == 0x20 # VARO
       pc += 1
       @inbounds d = vm.code[pc + 1]
@@ -339,7 +363,7 @@ function run_code(vm::VM, frame::Frame, pc::Int64)
       cenv = frame
       while d > 0; cenv = cenv.parent; d -= 1 end
       @inbounds ref = cenv.vars[i + 1]
-      push!(stack, Refs.getv(ref))
+      pushstack!(stack, Refs.getv(ref))
     elseif instr == 0x21 # VARM
       pc += 1
       @inbounds d = vm.code[pc + 1]
@@ -348,7 +372,7 @@ function run_code(vm::VM, frame::Frame, pc::Int64)
       cenv = frame
       while d > 0; cenv = cenv.parent; d -= 1 end
       @inbounds ref = cenv.vars[i + 1]
-      push!(stack, ref)
+      pushstack!(stack, ref)
     elseif instr == 0x22 # VARU
       pc += 1
       @inbounds d = vm.code[pc + 1]
@@ -358,23 +382,23 @@ function run_code(vm::VM, frame::Frame, pc::Int64)
       while d > 0; cenv = cenv.parent; d -= 1 end
       @inbounds ref = cenv.vars[i + 1]
       # TODO: need to clear the ref
-      push!(stack, Refs.getv(ref))
+      pushstack!(stack, Refs.getv(ref))
     elseif instr == 0x2C # NOTM
-      push!(stack, Refs.RefNot())
+      pushstack!(stack, Refs.RefNot())
     elseif instr == 0x30 # SETN
       len = length(stack)
       @inbounds ref = stack[len]
       @inbounds value = stack[len - 1]
       resize!(stack, len - 2)
       Refs.setn!(ref, value)
-      push!(stack, value)
+      pushstack!(stack, value)
     elseif instr == 0x31 # SETU
       len = length(stack)
       @inbounds ref = stack[len]
       @inbounds value = stack[len - 1]
       resize!(stack, len - 2)
       Refs.setu!(ref, value)
-      push!(stack, value)
+      pushstack!(stack, value)
     elseif instr == 0x32 # SETM
       len = length(stack)
       @inbounds ref = stack[len]
@@ -383,7 +407,7 @@ function run_code(vm::VM, frame::Frame, pc::Int64)
       resize!(stack, len - 3)
       value = 𝕗(Refs.getv(ref), 𝕩)
       Refs.setu!(ref, value)
-      push!(stack, value)
+      pushstack!(stack, value)
     elseif instr == 0x33 # SETC
       len = length(stack)
       @inbounds ref = stack[len]
@@ -391,7 +415,7 @@ function run_code(vm::VM, frame::Frame, pc::Int64)
       resize!(stack, len - 2)
       value = 𝕗(none, Refs.getv(ref))
       Refs.setu!(ref, value)
-      push!(stack, value)
+      pushstack!(stack, value)
     else
       @error "UNKNOWN BYTECODE 0x$(string(instr, base=16))"
       @assert false

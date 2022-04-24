@@ -8,7 +8,7 @@ end
 import TimerOutputs: @timeit_debug
 import TimerOutputs
 import ..run, ..BQNError, ..type, ..to
-import ..none, ..None, ..F, ..FN, ..TR2D, ..TR3D, ..TR3O, ..M1N, ..M2N, ..Runtime0
+import ..none, ..None, ..F, ..FN, ..TR2D, ..TR3D, ..TR3O, ..M1N, ..M2N, ..Runtime0, ..Provide, ..BQNF
 
 const names = ["+" => "bqnadd",
                "-" => "bqnsub",
@@ -88,9 +88,13 @@ for (idx, name) in enumerate(names)
     eval(
       quote
         $name00 = $(value[idx])
-        function $name0(𝕨, 𝕩)
-          label = $(name.second)
-          @timeit_debug to label $(name00)(𝕨, 𝕩)
+        if $name00 isa Function || $name00 isa M1N || $name00 isa M2N
+          $name0 = $name00
+        else
+          function $name0(𝕨, 𝕩)
+            label = $(name.second)
+            @timeit_debug to label $(name00)(𝕨, 𝕩)
+          end
         end
       end)
     value[idx] = eval(quote $name0 end)
@@ -99,7 +103,7 @@ for (idx, name) in enumerate(names)
   end
 end
 
-prim_ind(𝕨, 𝕩) = get(_runtime_indices, 𝕩, _runtime_length)
+prim_ind(𝕨, 𝕩) = get(_runtime_indices, 𝕩, float(_runtime_length))
 
 function decompose(𝕨, 𝕩)
   @nospecialize
@@ -117,6 +121,8 @@ function decompose(𝕨, 𝕩)
     elseif isa(𝕩, Runtime0.FNConst);      [ 4.0, 𝕩.𝕗, 𝕩.𝕣]
     elseif isa(𝕩, Runtime0.FNSwap);       [ 4.0, 𝕩.𝕗, 𝕩.𝕣]
     elseif isa(𝕩, Runtime0.FNEach);       [ 4.0, 𝕩.𝕗, 𝕩.𝕣]
+    elseif isa(𝕩, Provide.FNScan);        [ 4.0, 𝕩.𝕗, 𝕩.𝕣]
+    elseif isa(𝕩, Provide.FNTable);       [ 4.0, 𝕩.𝕗, 𝕩.𝕣]
     elseif isa(𝕩, FNEach);                [ 4.0, 𝕩.𝕗, 𝕩.𝕣]
     elseif isa(𝕩, FNFold);                [ 4.0, 𝕩.𝕗, 𝕩.𝕣]
     elseif isa(𝕩, F) && 𝕩.𝕗 !== nothing;  [ 4.0, 𝕩.𝕗, 𝕩.𝕣]
@@ -203,187 +209,179 @@ end
 # + bqnadd plus
 bqnadd(𝕨::None, 𝕩) = 𝕩
 # + bqnadd addition
-bqnadd(𝕨::Char, 𝕩::Number) = 𝕨 + Int(𝕩)
-bqnadd(𝕨::Number, 𝕩::Char) = Int(𝕨) + 𝕩
-bqnadd(𝕨::Number, 𝕩::Number) = float(𝕨 + 𝕩)
-bqnadd(𝕨::Union{Number,Char}, 𝕩::AbstractArray) = @along𝕩(bqnadd, 𝕨, 𝕩)
-bqnadd(𝕨::AbstractArray, 𝕩::Union{Number,Char}) = @along𝕨(bqnadd, 𝕨, 𝕩)
-bqnadd(𝕨::AbstractArray, 𝕩::AbstractArray) = @along𝕨𝕩(bqnadd, 𝕨, 𝕩)
-
-precompile(bqnadd, (Float64, Float64))
-precompile(bqnadd, (Char, Float64))
-precompile(bqnadd, (Float64, Char))
-precompile(bqnadd, (AbstractArray, AbstractArray))
-precompile(bqnadd, (Float64, Vector{Float64}))
-precompile(bqnadd, (Vector{Float64}, Float64))
-precompile(bqnadd, (Vector{Float64}, Vector{Float64}))
+bqnadd(𝕨::Char, 𝕩::Float64) = 𝕨 + Int(𝕩)
+bqnadd(𝕨::Float64, 𝕩::Char) = Int(𝕨) + 𝕩
+bqnadd(𝕨::Float64, 𝕩::Float64) = float(𝕨 + 𝕩)
+bqnadd(𝕨::Union{Float64,Char}, 𝕩::Array) = @along𝕩(bqnadd, 𝕨, 𝕩)
+bqnadd(𝕨::Array, 𝕩::Union{Float64,Char}) = @along𝕨(bqnadd, 𝕨, 𝕩)
+bqnadd(𝕨::Array, 𝕩::Array) = @along𝕨𝕩(bqnadd, 𝕨, 𝕩)
 
 @override(bqnadd)
 
 # - bqnsub minus
 bqnsub(𝕨::None, 𝕩) = float(-𝕩)
-bqnsub(𝕨::None, 𝕩::AbstractArray) =
+bqnsub(𝕨::None, 𝕩::Array) =
   size(𝕩) == () ? collect(float(-𝕩[1])) : bqnsub.(Ref(none), 𝕩)
 # + bqnsub substract
-bqnsub(𝕨::Char, 𝕩::Number) = 𝕨 - Int(𝕩)
+bqnsub(𝕨::Char, 𝕩::Float64) = 𝕨 - Int(𝕩)
 bqnsub(𝕨::Char, 𝕩::Char) = float(𝕨 - 𝕩)
-bqnsub(𝕨::Number, 𝕩::Number) = float(𝕨 - 𝕩)
-bqnsub(𝕨::Union{Number,Char}, 𝕩::AbstractArray) = @along𝕩(bqnsub, 𝕨, 𝕩)
-bqnsub(𝕨::AbstractArray, 𝕩::Union{Number,Char}) = @along𝕨(bqnsub, 𝕨, 𝕩)
-bqnsub(𝕨::AbstractArray, 𝕩::AbstractArray) = @along𝕨𝕩(bqnsub, 𝕨, 𝕩)
+bqnsub(𝕨::Float64, 𝕩::Float64) = float(𝕨 - 𝕩)
+bqnsub(𝕨::Union{Float64,Char}, 𝕩::Array) = @along𝕩(bqnsub, 𝕨, 𝕩)
+bqnsub(𝕨::Array, 𝕩::Union{Float64,Char}) = @along𝕨(bqnsub, 𝕨, 𝕩)
+bqnsub(𝕨::Array, 𝕩::Array) = @along𝕨𝕩(bqnsub, 𝕨, 𝕩)
 
 @override(bqnsub)
 
 # × bqnmul sign
-bqnmul(𝕨::None, 𝕩::Number) = float(sign(𝕩))
-bqnmul(𝕨::None, 𝕩::AbstractArray) = bqnmul.(Ref(none), 𝕩)
+bqnmul(𝕨::None, 𝕩::Float64) = float(sign(𝕩))
+bqnmul(𝕨::None, 𝕩::Array) = bqnmul.(Ref(none), 𝕩)
 # × bqnmul multiplication
-bqnmul(𝕨::Number, 𝕩::Number) = float(𝕨 * 𝕩)
-bqnmul(𝕨::Number, 𝕩::AbstractArray) = @along𝕩(bqnmul, 𝕨, 𝕩)
-bqnmul(𝕨::AbstractArray, 𝕩::Number) = @along𝕨(bqnmul, 𝕨, 𝕩)
-bqnmul(𝕨::AbstractArray, 𝕩::AbstractArray) = @along𝕨𝕩(bqnmul, 𝕨, 𝕩)
+bqnmul(𝕨::Float64, 𝕩::Float64) = float(𝕨 * 𝕩)
+bqnmul(𝕨::Float64, 𝕩::Array) = @along𝕩(bqnmul, 𝕨, 𝕩)
+bqnmul(𝕨::Array, 𝕩::Float64) = @along𝕨(bqnmul, 𝕨, 𝕩)
+bqnmul(𝕨::Array, 𝕩::Array) = @along𝕨𝕩(bqnmul, 𝕨, 𝕩)
 
 @override(bqnmul)
 
 # ÷ bqndiv
-bqndiv(𝕨::None, 𝕩::Number) = float(1/𝕩)
-bqndiv(𝕨::None, 𝕩::AbstractArray) = bqndiv.(Ref(none), 𝕩)
+bqndiv(𝕨::None, 𝕩::Float64) = float(1/𝕩)
+bqndiv(𝕨::None, 𝕩::Array) = bqndiv.(Ref(none), 𝕩)
 # ÷ bqndiv division
-bqndiv(𝕨::Number, 𝕩::Number) = float(𝕨 / 𝕩)
-bqndiv(𝕨::Number, 𝕩::AbstractArray) = @along𝕩(bqndiv, 𝕨, 𝕩)
-bqndiv(𝕨::AbstractArray, 𝕩::Number) = @along𝕨(bqndiv, 𝕨, 𝕩)
-bqndiv(𝕨::AbstractArray, 𝕩::AbstractArray) = @along𝕨𝕩(bqndiv, 𝕨, 𝕩)
+bqndiv(𝕨::Float64, 𝕩::Float64) = float(𝕨 / 𝕩)
+bqndiv(𝕨::Float64, 𝕩::Array) = @along𝕩(bqndiv, 𝕨, 𝕩)
+bqndiv(𝕨::Array, 𝕩::Float64) = @along𝕨(bqndiv, 𝕨, 𝕩)
+bqndiv(𝕨::Array, 𝕩::Array) = @along𝕨𝕩(bqndiv, 𝕨, 𝕩)
 
 @override(bqndiv)
 
 # ⋆ bqnpow
-bqnpow(𝕨::None, 𝕩::Number) = float(ℯ^𝕩)
-bqnpow(𝕨::None, 𝕩::AbstractArray) = bqnpow.(Ref(none), 𝕩)
+bqnpow(𝕨::None, 𝕩::Float64) = float(ℯ^𝕩)
+bqnpow(𝕨::None, 𝕩::Array) = bqnpow.(Ref(none), 𝕩)
 # ⋆ bqnpow division
-bqnpow(𝕨::Number, 𝕩::Number) = if 𝕩>=0; float(𝕨^𝕩) else 1/(𝕨^(-𝕩)) end
-bqnpow(𝕨::Number, 𝕩::AbstractArray) = @along𝕩(bqnpow, 𝕨, 𝕩)
-bqnpow(𝕨::AbstractArray, 𝕩::Number) = @along𝕨(bqnpow, 𝕨, 𝕩)
-bqnpow(𝕨::AbstractArray, 𝕩::AbstractArray) = @along𝕨𝕩(bqnpow, 𝕨, 𝕩)
+bqnpow(𝕨::Float64, 𝕩::Float64) = if 𝕩>=0; float(𝕨^𝕩) else 1/(𝕨^(-𝕩)) end
+bqnpow(𝕨::Float64, 𝕩::Array) = @along𝕩(bqnpow, 𝕨, 𝕩)
+bqnpow(𝕨::Array, 𝕩::Float64) = @along𝕨(bqnpow, 𝕨, 𝕩)
+bqnpow(𝕨::Array, 𝕩::Array) = @along𝕨𝕩(bqnpow, 𝕨, 𝕩)
 
 @override(bqnpow)
 
 # √ bqnroot square root
-bqnroot(root::None, 𝕩::Number) = sqrt(𝕩)
-bqnroot(root::None, 𝕩::AbstractArray) = sqrt.(𝕩)
+bqnroot(root::None, 𝕩::Float64) = sqrt(𝕩)
+bqnroot(root::None, 𝕩::Array) = sqrt.(𝕩)
 # √ bqnroot root
-bqnroot(𝕨::Number, 𝕩::Number) = 𝕩^(1/𝕨)
-bqnroot(𝕨::Number, 𝕩::AbstractArray) = @along𝕩(bqnroot, 𝕨, 𝕩)
-bqnroot(𝕨::AbstractArray, 𝕩::Number) = @along𝕨(bqnroot, 𝕨, 𝕩)
-bqnroot(𝕨::AbstractArray, 𝕩::AbstractArray) = @along𝕨𝕩(bqnroot, 𝕨, 𝕩)
+bqnroot(𝕨::Float64, 𝕩::Float64) = 𝕩^(1/𝕨)
+bqnroot(𝕨::Float64, 𝕩::Array) = @along𝕩(bqnroot, 𝕨, 𝕩)
+bqnroot(𝕨::Array, 𝕩::Float64) = @along𝕨(bqnroot, 𝕨, 𝕩)
+bqnroot(𝕨::Array, 𝕩::Array) = @along𝕨𝕩(bqnroot, 𝕨, 𝕩)
 
 @override(bqnroot)
 
 # ⌊ bqnmin floor
-bqnmin(𝕨::None, 𝕩::Number) = float(floor(𝕩))
-bqnmin(𝕨::None, 𝕩::AbstractArray) = bqnmin.(Ref(𝕨), 𝕩)
+bqnmin(𝕨::None, 𝕩::Float64) = float(floor(𝕩))
+bqnmin(𝕨::None, 𝕩::Array) = bqnmin.(Ref(𝕨), 𝕩)
 # ⌊ bqnmin minimum
-bqnmin(𝕨::Number, 𝕩::Number) = float(min(𝕨, 𝕩))
-bqnmin(𝕨::Number, 𝕩::AbstractArray) = @along𝕩(bqnmin, 𝕨, 𝕩)
-bqnmin(𝕨::AbstractArray, 𝕩::Number) = @along𝕨(bqnmin, 𝕨, 𝕩)
-bqnmin(𝕨::AbstractArray, 𝕩::AbstractArray) = @along𝕨𝕩(bqnmin, 𝕨, 𝕩)
+bqnmin(𝕨::Float64, 𝕩::Float64) = float(min(𝕨, 𝕩))
+bqnmin(𝕨::Float64, 𝕩::Array) = @along𝕩(bqnmin, 𝕨, 𝕩)
+bqnmin(𝕨::Array, 𝕩::Float64) = @along𝕨(bqnmin, 𝕨, 𝕩)
+bqnmin(𝕨::Array, 𝕩::Array) = @along𝕨𝕩(bqnmin, 𝕨, 𝕩)
 
 @override(bqnmin)
 
 # ⌈ bqnmax ceil
-bqnmax(𝕨::None, 𝕩::Number) =  float(ceil(𝕩))
-bqnmax(𝕨::None, 𝕩::AbstractArray) = bqnmax.(Ref(none), 𝕩)
+bqnmax(𝕨::None, 𝕩::Float64) =  float(ceil(𝕩))
+bqnmax(𝕨::None, 𝕩::Array) = bqnmax.(Ref(none), 𝕩)
 # ⌈ bqnmax maximum
-bqnmax(𝕨::Number, 𝕩::Number) = float(max(𝕨, 𝕩))
-bqnmax(𝕨::Number, 𝕩::AbstractArray) = @along𝕩(bqnmax, 𝕨, 𝕩)
-bqnmax(𝕨::AbstractArray, 𝕩::Number) = @along𝕨(bqnmax, 𝕨, 𝕩)
-bqnmax(𝕨::AbstractArray, 𝕩::AbstractArray) = @along𝕨𝕩(bqnmax, 𝕨, 𝕩)
+bqnmax(𝕨::Float64, 𝕩::Float64) = float(max(𝕨, 𝕩))
+bqnmax(𝕨::Float64, 𝕩::Array) = @along𝕩(bqnmax, 𝕨, 𝕩)
+bqnmax(𝕨::Array, 𝕩::Float64) = @along𝕨(bqnmax, 𝕨, 𝕩)
+bqnmax(𝕨::Array, 𝕩::Array) = @along𝕨𝕩(bqnmax, 𝕨, 𝕩)
 
 @override(bqnmax)
 
 # | bqnabs absolute value
-bqnabs(𝕨::None, 𝕩::Number) = float(abs(𝕩))
-bqnabs(𝕨::None, 𝕩::AbstractArray) = bqnabs.(Ref(none), 𝕩)
+bqnabs(𝕨::None, 𝕩::Float64) = float(abs(𝕩))
+bqnabs(𝕨::None, 𝕩::Array) = bqnabs.(Ref(none), 𝕩)
 # | bqnabs modulus
-bqnabs(𝕨::Number, 𝕩::Number) = float(mod(𝕩, 𝕨))
-bqnabs(𝕨::Number, 𝕩::AbstractArray) = @along𝕩(bqnabs, 𝕨, 𝕩)
-bqnabs(𝕨::AbstractArray, 𝕩::Number) = @along𝕨(bqnabs, 𝕨, 𝕩)
-bqnabs(𝕨::AbstractArray, 𝕩::AbstractArray) = @along𝕨𝕩(bqnabs, 𝕨, 𝕩)
+bqnabs(𝕨::Float64, 𝕩::Float64) = float(mod(𝕩, 𝕨))
+bqnabs(𝕨::Float64, 𝕩::Array) = @along𝕩(bqnabs, 𝕨, 𝕩)
+bqnabs(𝕨::Array, 𝕩::Float64) = @along𝕨(bqnabs, 𝕨, 𝕩)
+bqnabs(𝕨::Array, 𝕩::Array) = @along𝕨𝕩(bqnabs, 𝕨, 𝕩)
 
 @override(bqnabs)
 
 # ¬ bqnnot not
-bqnnot(𝕨::None, 𝕩::Number) = float(+(1 - 𝕩))
-bqnnot(𝕨::None, 𝕩::AbstractArray) = bqnnot.(Ref(none), 𝕩)
-bqnnot(𝕨, 𝕩) = bqnadd(1, bqnsub(𝕨, 𝕩))
+bqnnot(𝕨::None, 𝕩::Float64) = float(+(1 - 𝕩))
+bqnnot(𝕨::None, 𝕩::Array) = bqnnot.(Ref(none), 𝕩)
+bqnnot(𝕨, 𝕩) = bqnadd(1.0, bqnsub(𝕨, 𝕩))
 
 @override(bqnnot)
 
 # ≠ bqnneq length
 bqnneq(𝕨::None, 𝕩::Vector) = float(length(𝕩))
-bqnneq(𝕨::None, 𝕩::AbstractArray) = begin
+bqnneq(𝕨::None, 𝕩::Array) = begin
   size𝕩 = size(𝕩)
   float(size𝕩 != () ? size𝕩[end] : 1)
 end
-bqnneq(𝕨::None, 𝕩::Union{Number,Char}) = 1.0
+bqnneq(𝕨::None, 𝕩::Union{Float64,Char}) = 1.0
 # ≠ bqnneq not equals
 bqnneq(𝕨, 𝕩) = float(𝕨 != 𝕩)
-bqnneq(𝕨, 𝕩::AbstractArray) = @along𝕩(bqnneq, 𝕨, 𝕩)
-bqnneq(𝕨::AbstractArray, 𝕩) = @along𝕨(bqnneq, 𝕨, 𝕩)
-bqnneq(𝕨::AbstractArray, 𝕩::AbstractArray) = @along𝕨𝕩(bqnneq, 𝕨, 𝕩)
+bqnneq(𝕨, 𝕩::Array) = @along𝕩(bqnneq, 𝕨, 𝕩)
+bqnneq(𝕨::Array, 𝕩) = @along𝕨(bqnneq, 𝕨, 𝕩)
+bqnneq(𝕨::Array, 𝕩::Array) = @along𝕨𝕩(bqnneq, 𝕨, 𝕩)
 
 @override(bqnneq)
 
 # < bqnlt box
 bqnlt(𝕨::None, 𝕩) = fill(𝕩)
 # < bqnlt less than
-bqnlt(𝕨::Number, 𝕩::Number) = float(𝕨 < 𝕩)
+bqnlt(𝕨::Float64, 𝕩::Float64) = float(𝕨 < 𝕩)
 bqnlt(𝕨::Char, 𝕩::Char) = float(𝕨 < 𝕩)
-bqnlt(𝕨::Char, 𝕩::Number) = 0.0
-bqnlt(𝕨::Number, 𝕩::Char) = 1.0
-bqnlt(𝕨::Union{Number,Char}, 𝕩::AbstractArray) = @along𝕩(bqnlt, 𝕨, 𝕩)
-bqnlt(𝕨::AbstractArray, 𝕩::Union{Number,Char}) = @along𝕨(bqnlt, 𝕨, 𝕩)
-bqnlt(𝕨::AbstractArray, 𝕩::AbstractArray) = @along𝕨𝕩(bqnlt, 𝕨, 𝕩)
+bqnlt(𝕨::Char, 𝕩::Float64) = 0.0
+bqnlt(𝕨::Float64, 𝕩::Char) = 1.0
+bqnlt(𝕨::Union{Float64,Char}, 𝕩::Array) = @along𝕩(bqnlt, 𝕨, 𝕩)
+bqnlt(𝕨::Array, 𝕩::Union{Float64,Char}) = @along𝕨(bqnlt, 𝕨, 𝕩)
+bqnlt(𝕨::Array, 𝕩::Array) = @along𝕨𝕩(bqnlt, 𝕨, 𝕩)
 
 @override(bqnlt)
 
 # ≤ bqnlte
-bqnlte(𝕨::Number, 𝕩::Number) = float(𝕨 ≤ 𝕩)
+bqnlte(𝕨::Float64, 𝕩::Float64) = float(𝕨 ≤ 𝕩)
 bqnlte(𝕨::Char, 𝕩::Char) = float(𝕨 ≤ 𝕩)
-bqnlte(𝕨::Char, 𝕩::Number) = 0.0
-bqnlte(𝕨::Number, 𝕩::Char) = 1.0
-bqnlte(𝕨::Union{Number,Char}, 𝕩::AbstractArray) = @along𝕩(bqnlte, 𝕨, 𝕩)
-bqnlte(𝕨::AbstractArray, 𝕩::Union{Number,Char}) = @along𝕨(bqnlte, 𝕨, 𝕩)
-bqnlte(𝕨::AbstractArray, 𝕩::AbstractArray) = @along𝕨𝕩(bqnlte, 𝕨, 𝕩)
+bqnlte(𝕨::Char, 𝕩::Float64) = 0.0
+bqnlte(𝕨::Float64, 𝕩::Char) = 1.0
+bqnlte(𝕨::Union{Float64,Char}, 𝕩::Array) = @along𝕩(bqnlte, 𝕨, 𝕩)
+bqnlte(𝕨::Array, 𝕩::Union{Float64,Char}) = @along𝕨(bqnlte, 𝕨, 𝕩)
+bqnlte(𝕨::Array, 𝕩::Array) = @along𝕨𝕩(bqnlte, 𝕨, 𝕩)
 
 @override(bqnlte)
 
 # ≥ bqngte
-bqngte(𝕨::Number, 𝕩::Number) = float(𝕨 ≥ 𝕩)
+bqngte(𝕨::Float64, 𝕩::Float64) = float(𝕨 ≥ 𝕩)
 bqngte(𝕨::Char, 𝕩::Char) = float(𝕨 ≥ 𝕩)
-bqngte(𝕨::Char, 𝕩::Number) = 1.0
-bqngte(𝕨::Number, 𝕩::Char) = 0.0
-bqngte(𝕨::AbstractArray, 𝕩) = float(𝕨 ≥ 𝕩)
-bqngte(𝕨::Union{Number,Char}, 𝕩::AbstractArray) = @along𝕩(bqngte, 𝕨, 𝕩)
-bqngte(𝕨::AbstractArray, 𝕩::Union{Number,Char}) = @along𝕨(bqngte, 𝕨, 𝕩)
-bqngte(𝕨::AbstractArray, 𝕩::AbstractArray) = @along𝕨𝕩(bqngte, 𝕨, 𝕩)
+bqngte(𝕨::Char, 𝕩::Float64) = 1.0
+bqngte(𝕨::Float64, 𝕩::Char) = 0.0
+bqngte(𝕨::Array, 𝕩) = float(𝕨 ≥ 𝕩)
+bqngte(𝕨::Union{Float64,Char}, 𝕩::Array) = @along𝕩(bqngte, 𝕨, 𝕩)
+bqngte(𝕨::Array, 𝕩::Union{Float64,Char}) = @along𝕨(bqngte, 𝕨, 𝕩)
+bqngte(𝕨::Array, 𝕩::Array) = @along𝕨𝕩(bqngte, 𝕨, 𝕩)
 
 @override(bqngte)
 
 # > bqngt
 bqngt(𝕨::None, 𝕩) = bqngt0(𝕨, 𝕩)
 # > bqngt greater than
-bqngt(𝕨::Number, 𝕩::Number) = float(𝕨 > 𝕩)
+bqngt(𝕨::Float64, 𝕩::Float64) = float(𝕨 > 𝕩)
 bqngt(𝕨::Char, 𝕩::Char) = float(𝕨 > 𝕩)
-bqngt(𝕨::Char, 𝕩::Number) = 1.0
-bqngt(𝕨::Number, 𝕩::Char) = 0.0
-bqngt(𝕨::Union{Number,Char}, 𝕩::AbstractArray) = @along𝕩(bqngt, 𝕨, 𝕩)
-bqngt(𝕨::AbstractArray, 𝕩::Union{Number,Char}) = @along𝕨(bqngt, 𝕨, 𝕩)
-bqngt(𝕨::AbstractArray, 𝕩::AbstractArray) = @along𝕨𝕩(bqngt, 𝕨, 𝕩)
+bqngt(𝕨::Char, 𝕩::Float64) = 1.0
+bqngt(𝕨::Float64, 𝕩::Char) = 0.0
+bqngt(𝕨::Union{Float64,Char}, 𝕩::Array) = @along𝕩(bqngt, 𝕨, 𝕩)
+bqngt(𝕨::Array, 𝕩::Union{Float64,Char}) = @along𝕨(bqngt, 𝕨, 𝕩)
+bqngt(𝕨::Array, 𝕩::Array) = @along𝕨𝕩(bqngt, 𝕨, 𝕩)
 
 @override(bqngt)
 
 # ≢ bqndepth depth
-bqndepth(𝕨::None, 𝕩::AbstractArray) =
+bqndepth(𝕨::None, 𝕩::Array) =
   isempty(𝕩) ? 1.0 : 1.0 + maximum(bqndepth.(Ref(none), 𝕩))
 bqndepth(𝕨::None, 𝕩) = 0.0
 # ≢ bqndepth match
@@ -392,7 +390,7 @@ bqndepth(𝕨, 𝕩) = float(𝕨 == 𝕩)
 @override(bqndepth)
 
 # ≢ bqnshape shape
-bqnshape(𝕨::None, 𝕩::AbstractArray) = begin
+bqnshape(𝕨::None, 𝕩::Array) = begin
   shape = Float64[x for x in size(𝕩)]
   reverse!(shape)
   shape
@@ -404,7 +402,7 @@ bqnshape(𝕨, 𝕩) = float(𝕨 != 𝕩)
 @override(bqnshape)
 
 # ↕ bqnwindow
-bqnwindow(𝕨::None, 𝕩::Number) = begin
+bqnwindow(𝕨::None, 𝕩::Float64) = begin
   if !isinteger(𝕩); throw(BQNError("Expected non-negative integer")); end
   Float64[0.0:(𝕩-1.0)...]
 end
@@ -413,25 +411,25 @@ bqnwindow(𝕨, 𝕩) = bqnwindow0(𝕨, 𝕩) # TODO: ...
 @override(bqnwindow)
 
 # ⊏ bqnselect
-bqnselect(𝕨::Vector{Float64}, 𝕩::AbstractArray) = begin
+bqnselect(𝕨::Vector{Float64}, 𝕩::Array) = begin
   size𝕩 = size(𝕩)
   collect(selectdim(𝕩, ndims(𝕩), makeidx.(𝕨, length(size𝕩), Ref(size𝕩))))
 end
-bqnselect(𝕨::SubArray{Float64}, 𝕩::AbstractArray) = begin
+bqnselect(𝕨::SubArray{Float64}, 𝕩::Array) = begin
   size𝕩 = size(𝕩)
   collect(selectdim(𝕩, ndims(𝕩), makeidx.(𝕨, length(size𝕩), Ref(size𝕩))))
 end
-bqnselect(𝕨::Vector{Int}, 𝕩::AbstractArray) = begin
+bqnselect(𝕨::Vector{Int}, 𝕩::Array) = begin
   size𝕩 = size(𝕩)
   collect(selectdim(𝕩, ndims(𝕩), makeidx.(𝕨, length(size𝕩), Ref(size𝕩))))
 end
-bqnselect(𝕨::SubArray{Int}, 𝕩::AbstractArray) = begin
+bqnselect(𝕨::SubArray{Int}, 𝕩::Array) = begin
   size𝕩 = size(𝕩)
   collect(selectdim(𝕩, ndims(𝕩), makeidx.(𝕨, length(size𝕩), Ref(size𝕩))))
 end
-bqnselect(𝕨::AbstractArray, 𝕩::AbstractArray) = begin
+bqnselect(𝕨::Array, 𝕩::Array) = begin
   length𝕨, size𝕩, ndims𝕩 = length(𝕨), size(𝕩), ndims(𝕩)
-  if !isempty(𝕨) && isa(𝕨[1], AbstractArray)
+  if !isempty(𝕨) && isa(𝕨[1], Array)
     if ndims(𝕨) > 1
       throw(BQNError("𝕨⊏𝕩: Compound 𝕨 must have rank at most 1"))
     end
@@ -443,7 +441,7 @@ bqnselect(𝕨::AbstractArray, 𝕩::AbstractArray) = begin
       i𝕨 = ndims𝕩 - dim𝕩 + 1
       if i𝕨 ≤ length𝕨
         @inbounds inds𝕨 = 𝕨[i𝕨]
-        if !isa(inds𝕨, AbstractArray)
+        if !isa(inds𝕨, Array)
           throw(BQNError("𝕨⊏𝕩: 𝕨 must be an array of numbers or list of such arrays"))
         end
         @inbounds inds[dim𝕩] = makeidx.(𝕨[i𝕨], dim𝕩, Ref(size𝕩))
@@ -456,13 +454,13 @@ bqnselect(𝕨::AbstractArray, 𝕩::AbstractArray) = begin
     collect(selectdim(𝕩, ndims𝕩, makeidx.(𝕨, length(size𝕩), Ref(size𝕩))))
   end
 end
-bqnselect(𝕨::Number, 𝕩::AbstractArray) = begin
+bqnselect(𝕨::Float64, 𝕩::Array) = begin
   size𝕩 = size(𝕩)
   collect(selectdim(𝕩, ndims(𝕩), makeidx(𝕨, length(size𝕩), size𝕩)))
 end
 bqnselect(𝕨, 𝕩) = bqnselect0(𝕨, 𝕩)
 
-makeidx(idx::Number, d::Int, size::Tuple) = begin
+makeidx(idx::Float64, d::Int, size::Tuple) = begin
   idx′ = Int(idx)
   idx′ >= 0 ? idx′ + 1 : size[d] + idx′ + 1
 end
@@ -480,10 +478,10 @@ bqnor(𝕨::None, 𝕩) = begin
   end
 end
 # ∨ bqnor Or
-bqnor(𝕨::Number, 𝕩::Number) = float((𝕨+𝕩)-(𝕨*𝕩))
-bqnor(𝕨::Number, 𝕩::AbstractArray) = @along𝕩(bqnor, 𝕨, 𝕩)
-bqnor(𝕨::AbstractArray, 𝕩::Number) = @along𝕨(bqnor, 𝕨, 𝕩)
-bqnor(𝕨::AbstractArray, 𝕩::AbstractArray) = @along𝕨𝕩(bqnor, 𝕨, 𝕩)
+bqnor(𝕨::Float64, 𝕩::Float64) = float((𝕨+𝕩)-(𝕨*𝕩))
+bqnor(𝕨::Float64, 𝕩::Array) = @along𝕩(bqnor, 𝕨, 𝕩)
+bqnor(𝕨::Array, 𝕩::Float64) = @along𝕨(bqnor, 𝕨, 𝕩)
+bqnor(𝕨::Array, 𝕩::Array) = @along𝕨𝕩(bqnor, 𝕨, 𝕩)
 
 @override(bqnor)
 
@@ -498,15 +496,56 @@ bqnand(𝕨::None, 𝕩) = begin
   end
 end
 # ∧ bqnand And
-bqnand(𝕨::Number, 𝕩::Number) = float(𝕨*𝕩)
-bqnand(𝕨::Number, 𝕩::AbstractArray) = @along𝕩(bqnand, 𝕨, 𝕩)
-bqnand(𝕨::AbstractArray, 𝕩::Number) = @along𝕨(bqnand, 𝕨, 𝕩)
-bqnand(𝕨::AbstractArray, 𝕩::AbstractArray) = @along𝕨𝕩(bqnand, 𝕨, 𝕩)
+bqnand(𝕨::Float64, 𝕩::Float64) = float(𝕨*𝕩)
+bqnand(𝕨::Float64, 𝕩::Array) = @along𝕩(bqnand, 𝕨, 𝕩)
+bqnand(𝕨::Array, 𝕩::Float64) = @along𝕨(bqnand, 𝕨, 𝕩)
+bqnand(𝕨::Array, 𝕩::Array) = @along𝕨𝕩(bqnand, 𝕨, 𝕩)
 
 @override(bqnand)
 
+# ⋈ bqnpair Enlist
+# TODO: set fill element
+bqnpair(𝕨::None, 𝕩::T) where T = T[𝕩]
+# ⋈ bqnpair Pair
+# TODO: set fill element
+bqnpair(𝕨::T, 𝕩::T) where T = T[𝕨, 𝕩]
+bqnpair(𝕨, 𝕩) = [𝕨, 𝕩]
+
+@override(bqnpair)
+
+# ⥊ bqndeshape
+bqndeshape(𝕨::None, 𝕩::Array) = collect(reshape(𝕩, :))
+# ⥊ bqndeshape
+bqndeshape(𝕨::Float64, 𝕩::Array{T}) where T = begin
+  len𝕩 = length(𝕩)
+  if len𝕩 == 0;
+    throw(BQNError("𝕨⥊𝕩: Can't produce non-empty array from empty 𝕩"))
+  end
+  if 𝕨 < 0
+    throw(BQNError("𝕨⥊𝕩: Expected non-negative 𝕨"))
+  end
+  𝕨, 𝕩 = Int(𝕨), collect(reshape(𝕩, :))
+  resize!(𝕩, 𝕨)
+  if 𝕨 > len𝕩
+    @simd for idx in (len𝕩 + 1):𝕨
+      previdx = 1 + ((idx - 1) % len𝕩)
+      @inbounds 𝕩[idx] = 𝕩[previdx]
+    end
+  end
+  𝕩
+end
+bqndeshape(𝕨::Float64, 𝕩::Float64) = begin
+  if 𝕨 < 0
+    throw(BQNError("𝕨⥊𝕩: Expected non-negative 𝕨"))
+  end
+  fill(𝕩, (Int(𝕨),))
+end
+bqndeshape(𝕨, 𝕩) = bqndeshape0(𝕨, 𝕩)
+
+@override(bqndeshape)
+
 # ⊑ bqnpick
-bqnpick(𝕨::None, 𝕩::Number) = 𝕩
+bqnpick(𝕨::None, 𝕩::Float64) = 𝕩
 bqnpick(𝕨::None, 𝕩) = begin
   if ndims(𝕩) == 1
     if isempty(𝕩)
@@ -517,7 +556,7 @@ bqnpick(𝕨::None, 𝕩) = begin
     bqnpick0(𝕨, 𝕩)
   end
 end
-bqnpick(𝕨::Number, 𝕩::Vector) = 
+bqnpick(𝕨::Float64, 𝕩::Vector) = 
   if 𝕨 >= 0; 𝕩[Int(𝕨) + 1] else 𝕩[end + (Int(𝕨) + 1)] end
 bqnpick(𝕨, 𝕩) = begin
   bqnpick0(𝕨, 𝕩)
@@ -527,7 +566,7 @@ end
 
 bqntake(𝕨::None, 𝕩) = bqntake0(𝕨, 𝕩)
 bqntake(𝕨, 𝕩) = begin
-  if 𝕨 isa Number && 𝕨 >= 0 && ndims(𝕩) == 1
+  if 𝕨 isa Float64 && 𝕨 >= 0 && ndims(𝕩) == 1
     𝕨 = Int(𝕨)
     len𝕩 = length(𝕩)
     if 𝕨 > length(𝕩)
@@ -549,11 +588,11 @@ end
 @override(bqntake)
 
 # = bqneq Rank
-bqneq(𝕨::None, 𝕩) = if isa(𝕩, AbstractArray); float(ndims(𝕩)) else 0.0 end
+bqneq(𝕨::None, 𝕩) = if isa(𝕩, Array); float(ndims(𝕩)) else 0.0 end
 # = bqneq Equality
 bqneq(𝕨, 𝕩) = begin
-  𝕨isarr = isa(𝕨, AbstractArray)
-  𝕩isarr = isa(𝕩, AbstractArray)
+  𝕨isarr = isa(𝕨, Array)
+  𝕩isarr = isa(𝕩, Array)
   if 𝕨isarr && 𝕩isarr
     @along𝕨𝕩(bqneq, 𝕨, 𝕩)
   elseif 𝕩isarr
@@ -577,26 +616,30 @@ bqnjoin(𝕨::None, 𝕩::Vector{Vector{T}}) where T = begin
   end
   res
 end
-bqnjoin(𝕨::None, 𝕩::Vector) = begin
-  bqnjoin0(𝕨, 𝕩)
+bqnjoin(𝕨::None, 𝕩::Vector{Vector}) = begin
+  res = Any[]
+  for 𝕩e in 𝕩
+    for 𝕩ee in 𝕩e
+      push!(res, 𝕩ee)
+    end
+  end
+  res
 end
-bqnjoin(𝕨::Union{Number,Char}, 𝕩::Union{Number,Char}) =
+bqnjoin(𝕨::Union{Float64,Char}, 𝕩::Union{Float64,Char}) =
   [𝕨, 𝕩]
-bqnjoin(𝕨::Union{Number,Char}, 𝕩::AbstractArray) =
+bqnjoin(𝕨::Union{Float64,Char}, 𝕩::Array) =
   if ndims(𝕩) < 2; collect(vcat(𝕨, 𝕩))
   else bqnjoin0(𝕨, 𝕩) end
-bqnjoin(𝕨::AbstractArray, 𝕩::Union{Number,Char}) =
+bqnjoin(𝕨::Array, 𝕩::Union{Float64,Char}) =
   if ndims(𝕨) < 2; collect(vcat(𝕨, 𝕩))
   else bqnjoin0(𝕨, 𝕩) end
-bqnjoin(𝕨::AbstractArray, 𝕩::AbstractArray) = begin
+bqnjoin(𝕨::Array, 𝕩::Array) = begin
   if ndims(𝕨) < 2 && ndims(𝕩) < 2; collect(vcat(𝕨, 𝕩))
   elseif length(𝕨) == 0; 𝕩
   elseif length(𝕩) == 0; 𝕨
   else collect(hcat(𝕨, 𝕩)) end
 end
-bqnjoin(𝕨, 𝕩) = begin
-  bqnjoin0(𝕨, 𝕩)
-end
+bqnjoin(𝕨, 𝕩) = bqnjoin0(𝕨, 𝕩)
 
 @override(bqnjoin)
 
@@ -625,7 +668,7 @@ bqnrev(@nospecialize(𝕨), @nospecialize(𝕩)) =
 bqngroup(𝕨::None, 𝕩) = bqngroup0(𝕨, 𝕩)
 bqngroup(𝕨, 𝕩) = begin
   ndims𝕩 = ndims(𝕩)
-  if ndims𝕩 == 1 && ndims(𝕨) == 1 && eltype(𝕨) <: Number
+  if ndims𝕩 == 1 && ndims(𝕨) == 1 && eltype(𝕨) <: Float64
     len𝕨, len𝕩 = length(𝕨), length(𝕩)
     if !(len𝕨 == len𝕩 || len𝕨 == len𝕩 + 1)
       throw(BQNError("⊔: ≠𝕨 must be either ≠𝕩 or one bigger"))
@@ -687,7 +730,7 @@ end
 @override(bqnmember)
 
 # / bqnreplicate
-bqnreplicate(𝕨::AbstractArray, 𝕩::AbstractArray) = begin
+bqnreplicate(𝕨::Array, 𝕩::Array) = begin
   ndims𝕨, ndims𝕩 = ndims(𝕨), ndims(𝕩)
   if !(ndims𝕨 == 1 && ndims𝕩 == 1); return bqnreplicate0(𝕨, 𝕩) end
   if length(𝕨) == 0; return 𝕩 end
@@ -704,18 +747,18 @@ bqnreplicate(𝕨::AbstractArray, 𝕩::AbstractArray) = begin
   end
   z
 end
-bqnreplicate(𝕨::None, 𝕩::AbstractArray) = begin
+bqnreplicate(𝕨::None, 𝕩::Array) = begin
   if ndims(𝕩) != 1
     throw(BQNError("/: Argument must have rank 1"))
   end
-  bqnreplicate(𝕩, 0.0:(length(𝕩) - 1))
+  bqnreplicate(𝕩, collect(0.0:(length(𝕩) - 1)))
 end
 bqnreplicate(𝕨, 𝕩) = bqnreplicate0(𝕨, 𝕩)
 
 @override(bqnreplicate)
 
 # ⍋ bqngradeup
-bqngradeup(𝕨::None, 𝕩::AbstractArray) = begin
+bqngradeup(𝕨::None, 𝕩::Array) = begin
   ndims𝕩 = ndims(𝕩)
   if ndims𝕩 == 1
     float.(sortperm(𝕩, lt=bqnarraylt) .- 1)
@@ -724,7 +767,7 @@ bqngradeup(𝕨::None, 𝕩::AbstractArray) = begin
   end
 end
 bqngradeup(𝕨, 𝕩) = begin
-  if isa(𝕨, AbstractArray) && isa(𝕩, AbstractArray) && ndims(𝕨) == 1 && ndims(𝕩) == 1
+  if isa(𝕨, Array) && isa(𝕩, Array) && ndims(𝕨) == 1 && ndims(𝕩) == 1
     res = Float64[]
     for x in 𝕩
       c = 0.0
@@ -743,7 +786,7 @@ end
 @override(bqngradeup)
 
 # ⍒ bqngradedown
-bqngradedown(𝕨::None, 𝕩::AbstractArray) = begin
+bqngradedown(𝕨::None, 𝕩::Array) = begin
   ndims𝕩 = ndims(𝕩)
   if ndims𝕩 == 1
     float.(sortperm(𝕩, lt=bqnarraylt, rev=true) .- 1)
@@ -762,7 +805,7 @@ bqnarraylt(𝕨, 𝕩) =
 #  1 ←-→ 𝕨 > 𝕩
 # -1 ←-→ 𝕨 < 𝕩
 #  - ←-→ 𝕨 ≡ 𝕩
-bqnarrayord(𝕨::Number, 𝕩::Number) =
+bqnarrayord(𝕨::Float64, 𝕩::Float64) =
   if 𝕨 == 𝕩; return 0
   elseif 𝕨 > 𝕩; return 1
   else; return -1 end
@@ -770,8 +813,8 @@ bqnarrayord(𝕨::Char, 𝕩::Char) =
   if 𝕨 == 𝕩; return 0
   elseif 𝕨 > 𝕩; return 1
   else; return -1 end
-bqnarrayord(𝕨::Char, 𝕩::Number) = 1
-bqnarrayord(𝕨::Number, 𝕩::Char) = -1
+bqnarrayord(𝕨::Char, 𝕩::Float64) = 1
+bqnarrayord(𝕨::Float64, 𝕩::Char) = -1
 bqnarrayord(𝕨, 𝕩) = begin
   @nospecialize
   𝕨isarr, 𝕩isarr = isa(𝕨, AbstractArray), isa(𝕩, AbstractArray)
@@ -821,7 +864,7 @@ function bqnarrayord2(𝕨, 𝕩)
 end
 
 # » bqnrshift
-bqnrshift(𝕨::Union{Char,Number}, 𝕩::AbstractArray) = begin
+bqnrshift(𝕨::Union{Char,Float64}, 𝕩::Array) = begin
   if ndims(𝕩) == 1
     len𝕩 = length(𝕩)
     if len𝕩 == 0; 𝕩
@@ -832,7 +875,7 @@ bqnrshift(𝕨::Union{Char,Number}, 𝕩::AbstractArray) = begin
     bqnrshift0(𝕨, 𝕩)
   end
 end
-bqnrshift(𝕨::None, 𝕩::AbstractArray) =
+bqnrshift(𝕨::None, 𝕩::Array) =
   if ndims(𝕩) == 1
     # TODO: here we must use fill value
     bqnrshift(0.0, 𝕩)
@@ -846,7 +889,7 @@ end
 @override(bqnrshift)
 
 # « bqnlshift
-bqnlshift(𝕨::Union{Char,Number}, 𝕩::Vector) = begin
+bqnlshift(𝕨::Union{Char,Float64}, 𝕩::Vector) = begin
   len𝕩 = length(𝕩)
   if len𝕩 == 0; 𝕩
   elseif len𝕩 == 1; [𝕨]
@@ -861,13 +904,13 @@ bqnlshift(𝕨, 𝕩) = bqnlshift0(𝕨, 𝕩)
 @override(bqnlshift)
 
 # ↓ bqndrop
-bqndrop(𝕨::Number, 𝕩::AbstractArray) = begin
+bqndrop(𝕨::Float64, 𝕩::Array) = begin
   if ndims(𝕩) == 1; bqndropone(Int(𝕨), 𝕩)
   else bqndrop0(𝕨, 𝕩) end
 end
 bqndrop(𝕨, 𝕩) = bqndrop0(𝕨, 𝕩)
 
-bqndropone(𝕨::Int, 𝕩::AbstractArray) =
+bqndropone(𝕨::Int, 𝕩::Array) =
   if 𝕨 == 0; 𝕩
   elseif 𝕨 > 0; 𝕩[𝕨+1:end]
   else 𝕩[1:end+𝕨] end
@@ -878,15 +921,15 @@ bqndropone(𝕨::Int, 𝕩::AbstractArray) =
 bqneach(𝕘::Nothing, 𝕗) = FNEach(bqneach′, 𝕗, bqneach0(𝕘, 𝕗))
 bqneach′ = M1N(bqneach)
 
-struct FNEach
+struct FNEach <: BQNF
   𝕣::M1N
   𝕗::Any
   𝕗0::Any
 end
 
-(𝕣::FNEach)(𝕨::None, 𝕩::AbstractArray) =
+(𝕣::FNEach)(𝕨::None, 𝕩::Array) =
   ndims(𝕩) == 0 ? fill(𝕣.𝕗(𝕨, 𝕩[1])) : 𝕣.𝕗.(Ref(𝕨), 𝕩)
-(𝕣::FNEach)(𝕨::None, 𝕩::Number) =
+(𝕣::FNEach)(𝕨::None, 𝕩::Float64) =
   fill(𝕣.𝕗(𝕨, 𝕩))
 (𝕣::FNEach)(𝕨, 𝕩) =
   𝕣.𝕗0(𝕨, 𝕩)
@@ -900,24 +943,24 @@ bqnfold(𝕘::Nothing, 𝕗) = FNFold(bqnfold′, 𝕗)
 bqnfold′ = M1N(bqnfold)
 
 bqnidentity(𝕗) =
-  if     𝕗 == bqnadd; 0
-  elseif 𝕗 == bqnsub; 0
-  elseif 𝕗 == bqnmul; 1
-  elseif 𝕗 == bqndiv; 1
-  elseif 𝕗 == bqnpow; 1
-  elseif 𝕗 == bqnnot; 1
+  if     𝕗 == bqnadd; 0.0
+  elseif 𝕗 == bqnsub; 0.0
+  elseif 𝕗 == bqnmul; 1.0
+  elseif 𝕗 == bqndiv; 1.0
+  elseif 𝕗 == bqnpow; 1.0
+  elseif 𝕗 == bqnnot; 1.0
   elseif 𝕗 == bqnmin; Inf
   elseif 𝕗 == bqnmax; -Inf
-  elseif 𝕗 == bqnor; 0
-  elseif 𝕗 == bqnand; 1
-  elseif 𝕗 == bqnneq; 0
-  elseif 𝕗 == bqneq; 1
-  elseif 𝕗 == bqngt; 0
-  elseif 𝕗 == bqngte; 1
+  elseif 𝕗 == bqnor; 0.0
+  elseif 𝕗 == bqnand; 1.0
+  elseif 𝕗 == bqnneq; 0.0
+  elseif 𝕗 == bqneq; 1.0
+  elseif 𝕗 == bqngt; 0.0
+  elseif 𝕗 == bqngte; 1.0
   else throw(BQNError("No identity found"))
   end
 
-struct FNFold
+struct FNFold <: BQNF
   𝕣::M1N
   𝕗::Any
 end
@@ -942,15 +985,18 @@ type(𝕩::FNFold) = 3.0
 @specialize
 
 const _runtime_length = length(value)
-const _runtime_indices = IdDict(𝕗 => idx - 1
+const _runtime_indices = IdDict(𝕗 => float(idx - 1)
                                 for (idx, 𝕗) in enumerate(value))
+
+# _runtime_indices[Provide.bqntable´] = indices["bqntable"]
+# _runtime_indices[Provide.bqnscan´] = indices["bqnscan"]
 
 export runtime
 
 # for 𝕗 in value
 #   types = [None, Any,
-#            Float64, Int64, Number, Char,
-#            AbstractArray, Vector{Float64}, Vector{Char}]
+#            Float64, Char,
+#            Array, Vector{Float64}, Vector{Char}]
 #   for 𝕨 in types
 #     for 𝕩 in types
 #       precompile(𝕗, (𝕨, 𝕩))
